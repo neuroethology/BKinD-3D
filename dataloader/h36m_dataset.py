@@ -23,6 +23,8 @@ def generate_pair_images(root, subjects, actions, gap=20):
 
     for subject in subjects:
         subject_root = os.path.join(root, subject)
+        calib_file = os.path.join(root, subject, "calibration.toml")
+        calibration = toml.load(calib_file)
 
         for action in actions:
             action_root = os.path.join(subject_root, action)
@@ -39,22 +41,38 @@ def generate_pair_images(root, subjects, actions, gap=20):
             y_max = np.max(annos['pose']['2d'][()][:, :, 1], axis = -1)
             x_max = np.max(annos['pose']['2d'][()][:, :, 0], axis = -1)
 
-            for i in range(0, len(annos['frame'][()])-gap, gap):
+            camera_nums = annos['camera'][()]
+            frame_nums = annos['frame'][()]
 
-                camera_0 = annos['camera'][()][i]
-                camera_1 = annos['camera'][()][i+gap]
-                if camera_0 == camera_1:
-                    name_0 = 'img_{:06d}.jpg'.format(annos['frame'][()][i])
-                    name_1 = 'img_{:06d}.jpg'.format(annos['frame'][()][i+gap])
-                    im0 = os.path.join(img_root, str(camera_0), name_0)
-                    im1 = os.path.join(img_root, str(camera_1), name_1)
+            cam_frame = dict()
+            for i in range(len(annos['camera'][()])):
+                cam_number = camera_nums[i]
+                frame_number = frame_nums[i]
+                cam_frame[(cam_number, frame_number)] = i
 
-                bbox0 = [y_min[i], x_min[i], y_max[i], x_max[i]]
-                bbox1 = [y_min[i+gap], x_min[i+gap], y_max[i+gap], x_max[i+gap]]
+            camera_names = sorted(set(camera_nums))
 
-                item = [im0, im1, bbox0, bbox1]
-
-                images.append(item)
+            for framenum in range(max(frame_nums)):
+                bad = False
+                allcams_item = []
+                for cam_name in camera_names:
+                    ix_1 = cam_frame.get((cam_name, framenum), None)
+                    ix_2 = cam_frame.get((cam_name, framenum+gap), None)
+                    if ix_1 is None or ix_2 is None:
+                        bad = True
+                        break
+                    name_0 = 'img_{:06d}.jpg'.format(annos['frame'][()][ix_1])
+                    name_1 = 'img_{:06d}.jpg'.format(annos['frame'][()][ix_2])
+                    im0 = os.path.join(img_root, str(cam_name), name_0)
+                    im1 = os.path.join(img_root, str(cam_name), name_1)
+                    bbox0 = [y_min[ix_1], x_min[ix_1], y_max[ix_1], x_max[ix_1]]
+                    bbox1 = [y_min[ix_2], x_min[ix_2], y_max[ix_2], x_max[ix_2]]
+                    item = [im0, im1, bbox0, bbox1]
+                    allcams_item.append(item)
+                if bad:
+                    continue
+                images.append({"calibration": calibration,
+                               "items": allcams_item})
 
     return images
 
