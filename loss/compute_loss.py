@@ -37,12 +37,14 @@ class computeLoss:
         self.criterion = [recon_crit, nn.MSELoss().cuda(args.gpu), separation_crit, rotation_crit]
 
     def update_loss(self, inputs, tr_inputs, loss_mask, output, epoch):
+        device = inputs.device
+
         to_pred = compute_ssim(inputs, tr_inputs)
 
         vgg_feat_in = self.loss_model(to_pred)
-        vgg_feat_out = self.loss_model(output[0])
+        vgg_feat_out = self.loss_model(output['recon'])
 
-        l = self.criterion[0](to_pred, output[0], loss_mask)
+        l = self.criterion[0](to_pred, output['recon'], loss_mask)
         wl = _exp_running_avg(l.mean(), init_val=self.args.perc_weight[0])
         l /= wl
 
@@ -58,28 +60,28 @@ class computeLoss:
             loss += l.mean()
 
         if epoch >= self.args.curriculum:
-            deg = torch.ones((output[2][1].size()[0])).to(output[2][1].device) * 90
-            rot_loss, rot_label = self.criterion[3](output[2][0][:, :self.args.nkpts], output[2][1], deg)
+            deg = torch.ones((output['gmtr_heatmap'][0].size()[0])).to(device) * 90
+            rot_loss, rot_label = self.criterion[3](output['tr_heatmap'][:, :self.args.nkpts], output['gmtr_heatmap'][0], deg)
             loss += rot_loss/3
 
-            deg = torch.ones((output[2][1].size()[0])).to(output[2][1].device) * 180
-            rot_loss, rot_label2 = self.criterion[3](output[2][0][:, :self.args.nkpts], output[2][2], deg)
+            deg = torch.ones((output['gmtr_heatmap'][1].size()[0])).to(device) * 180
+            rot_loss, rot_label2 = self.criterion[3](output['tr_heatmap'][:, :self.args.nkpts], output['gmtr_heatmap'][1], deg)
             loss += rot_loss/3
 
-            deg = torch.ones((output[2][1].size()[0])).to(output[2][1].device) * -90
-            rot_loss, rot_label3 = self.criterion[3](output[2][0][:, :self.args.nkpts], output[2][3], deg)
+            deg = torch.ones((output['gmtr_heatmap'][2].size()[0])).to(device) * -90
+            rot_loss, rot_label3 = self.criterion[3](output['tr_heatmap'][:, :self.args.nkpts], output['gmtr_heatmap'][2], deg)
             loss += rot_loss/3
 
-            separation = self.criterion[2]((output[5][0], output[5][1]))
+            separation = self.criterion[2]((output['gmtr_pos'][0], output['gmtr_pos'][1]))
             loss += separation.mean()
 
-            separation = self.criterion[2]((output[5][2], output[5][3]))
+            separation = self.criterion[2]((output['gmtr_pos'][2], output['gmtr_pos'][3]))
             loss += separation.mean()
 
-            separation = self.criterion[2]((output[5][4], output[5][5]))
+            separation = self.criterion[2]((output['gmtr_pos'][4], output['gmtr_pos'][5]))
             loss += separation.mean()
 
-            separation = self.criterion[2](output[1])
+            separation = self.criterion[2](output['tr_pos'])
             loss += separation.mean()
 
         return loss

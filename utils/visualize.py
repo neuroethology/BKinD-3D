@@ -24,19 +24,16 @@ def save_images(image, output, epoch, args, curr_epoch):
     if not os.path.isdir(im_dir):
         os.makedirs(im_dir)
         
-    sample_ids = np.random.permutation(len(output[0]))
-    sample_ids = sample_ids[:min(5, len(output[0]))]
+    sample_ids = np.random.permutation(len(output['recon']))
+    sample_ids = sample_ids[:min(5, len(output['recon']))]
     
     im = image.data.cpu().numpy()
     
-    kps = output[1]
-    recon = output[0]
-    if epoch < args.curriculum:
-        heatmap = output[2]
-        confidence = output[5]
-    else:
-        heatmap = output[2][0]
-        confidence = output[6]
+    kps = output['tr_pos']
+    recon = output['recon']
+
+    heatmap = output['tr_heatmap']
+    confidence = output['tr_confidence']
         
     # keypoints
     xy = torch.stack((kps[0], kps[1]), dim=2)

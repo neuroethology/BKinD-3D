@@ -138,6 +138,8 @@ class Model(nn.Module):
 
     def forward(self, x, tr_x=None, gmtr_x1 = None, gmtr_x2 = None, gmtr_x3 = None):
         
+        return_dict = {}
+
         x_res = self.encoder(x)
         
         if tr_x is not None:
@@ -184,7 +186,15 @@ class Model(nn.Module):
             tr_kpt_conds.append(hmaps)
             
         recon = self.decoder(x_res, tr_kpt_conds)
-        
+
+        return_dict['recon'] = recon
+        return_dict['tr_pos'] = (tr_u_x, tr_u_y)
+        return_dict['pos'] = (u_x, u_y)
+        return_dict['tr_heatmap'] = tr_kpt_conds[-1]
+        return_dict['tr_kpt_out'] = tr_kpt_out[-1]
+        return_dict['tr_confidence'] = tr_confidence
+
+
         if gmtr_x1 is not None:  # Rotation loss
             out_h, out_w = int(self.output_shape[0]*2), int(self.output_shape[1]*2)
             
@@ -223,12 +233,12 @@ class Model(nn.Module):
 
             gmtr_kpt_conds_3 = self._kptTomap(gmtr_u_x_3, gmtr_u_y_3, H=out_h, W=out_w, inv_std=0.001, normalize=False)
 
-            return (recon, (tr_u_x, tr_u_y), (tr_kpt_conds[-1], gmtr_kpt_conds_1, gmtr_kpt_conds_2, gmtr_kpt_conds_3),
-             (tr_kpt_out[-1], gmtr_kpt_out[-1]), (u_x, u_y), (gmtr_u_x, gmtr_u_y, gmtr_u_x_2, gmtr_u_y_2, gmtr_u_x_3, gmtr_u_y_3),
-             tr_confidence)
+            return_dict['gmtr_pos'] = (gmtr_u_x, gmtr_u_y, gmtr_u_x_2, gmtr_u_y_2, gmtr_u_x_3, gmtr_u_y_3)
+            return_dict['gmtr_heatmap'] = (gmtr_kpt_conds_1, gmtr_kpt_conds_2, gmtr_kpt_conds_3)
+            return_dict['gmtr_kpt_out'] = gmtr_kpt_out[-1]  
         
-        
-        return recon, (tr_u_x, tr_u_y), tr_kpt_conds[-1], tr_kpt_out[-1], (u_x, u_y), tr_confidence
+        return return_dict
+        #return recon, (tr_u_x, tr_u_y), tr_kpt_conds[-1], tr_kpt_out[-1], (u_x, u_y), tr_confidence
     
         
     def _mapTokpt(self, heatmap):

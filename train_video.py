@@ -146,29 +146,34 @@ def train(train_loader, model, loss_module, optimizer, epoch, args):
 
     end = time.time()
 
-    for i, images in enumerate(train_loader):
+    for i, all_cam_items in enumerate(train_loader):
         # measure data loading time
         data_time.update(time.time() - end)
 
-        if args.gpu is not None:
-            inputs, tr_inputs, loss_mask, in_mask = images[0].cuda(args.gpu, non_blocking=True), \
-                                                    images[1].cuda(args.gpu, non_blocking=True), \
-                                                    images[2].cuda(args.gpu, non_blocking=True), \
-                                                    images[3].cuda(args.gpu, non_blocking=True)
+        # Compute reconstruction loss over each camera view
+        for cam_num in range(len(all_cam_items['image'])):
+            inputs, tr_inputs = all_cam_items['image'][cam_num]
+            loss_mask, in_mask = all_cam_items['mask'][cam_num]
+            rot_im1, rot_im2, rot_im3 = all_cam_items['rotation'][cam_num]
 
-            rot_im1, rot_im2,rot_im3  = images[4].cuda(args.gpu, non_blocking=True), \
-                            images[5].cuda(args.gpu, non_blocking=True), \
-                            images[6].cuda(args.gpu, non_blocking=True)
+            if args.gpu is not None:
+                inputs = inputs.cuda(args.gpu, non_blocking=True)
+                tr_inputs = tr_inputs.cuda(args.gpu, non_blocking=True)
+                loss_mask = loss_mask.cuda(args.gpu, non_blocking=True)
+                in_mask = in_mask.cuda(args.gpu, non_blocking=True)
+                rot_im1 = rot_im1.cuda(args.gpu, non_blocking=True)
+                rot_im2 = rot_im2.cuda(args.gpu, non_blocking=True)               
+                rot_im3 = rot_im3.cuda(args.gpu, non_blocking=True)
 
-        if epoch < args.curriculum:
-            output = model(inputs, tr_inputs)
-        else:
-            output = model(inputs, tr_inputs, gmtr_x1 = rot_im1, gmtr_x2 = rot_im2, gmtr_x3 = rot_im3)
+            if epoch < args.curriculum:
+                output = model(inputs, tr_inputs)
+            else:
+                output = model(inputs, tr_inputs, gmtr_x1 = rot_im1, gmtr_x2 = rot_im2, gmtr_x3 = rot_im3)
 
-        loss = loss_module.update_loss(inputs, tr_inputs, loss_mask, output, epoch)
-        
-        # measure accuracy and record loss
-        losses.update(loss.item(), images[0].size(0))
+            loss = loss_module.update_loss(inputs, tr_inputs, loss_mask, output, epoch)
+            
+            # measure accuracy and record loss
+            losses.update(loss.item(), inputs.size(0))
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
@@ -201,24 +206,34 @@ def validate(val_loader, model, loss_module, epoch, args):
 
     with torch.no_grad():
         end = time.time()
-        for i, images in enumerate(val_loader):
+        for i, all_cam_items in enumerate(val_loader):
+            # measure data loading time
+            data_time.update(time.time() - end)
 
-            if args.gpu is not None:
-                inputs, tr_inputs, loss_mask, in_mask = images[0].cuda(args.gpu, non_blocking=True), \
-                                                    images[1].cuda(args.gpu, non_blocking=True), \
-                                                    images[2].cuda(args.gpu, non_blocking=True), \
-                                                    images[3].cuda(args.gpu, non_blocking=True)
+            # Compute reconstruction loss over each camera view
+            for cam_num in range(len(all_cam_items['image'])):
+                inputs, tr_inputs = all_cam_items['image'][cam_num]
+                loss_mask, in_mask = all_cam_items['mask'][cam_num]
+                rot_im1, rot_im2, rot_im3 = all_cam_items['rotation'][cam_num]
 
-            rot_im1, rot_im2,rot_im3  = images[4].cuda(args.gpu, non_blocking=True), \
-                            images[5].cuda(args.gpu, non_blocking=True), \
-                            images[6].cuda(args.gpu, non_blocking=True)
+                if args.gpu is not None:
+                    inputs = inputs.cuda(args.gpu, non_blocking=True)
+                    tr_inputs = tr_inputs.cuda(args.gpu, non_blocking=True)
+                    loss_mask = loss_mask.cuda(args.gpu, non_blocking=True)
+                    in_mask = in_mask.cuda(args.gpu, non_blocking=True)
+                    rot_im1 = rot_im1.cuda(args.gpu, non_blocking=True)
+                    rot_im2 = rot_im2.cuda(args.gpu, non_blocking=True)               
+                    rot_im3 = rot_im3.cuda(args.gpu, non_blocking=True)
 
-            # compute output
-            output = model(inputs, tr_inputs, gmtr_x1 = rot_im1, gmtr_x2 = rot_im2, gmtr_x3 = rot_im3)
-            # Note that validate function only computes MSE loss
-            loss = loss_module.criterion[1](output[0] * loss_mask, tr_inputs * loss_mask)
+                if epoch < args.curriculum:
+                    output = model(inputs, tr_inputs)
+                else:
+                    output = model(inputs, tr_inputs, gmtr_x1 = rot_im1, gmtr_x2 = rot_im2, gmtr_x3 = rot_im3)
 
-            losses.update(loss.item(), images[0].size(0))
+                loss = loss_module.update_loss(inputs, tr_inputs, loss_mask, output, epoch)
+                
+                # measure accuracy and record loss
+                losses.update(loss.item(), inputs.size(0))
 
             # measure elapsed time
             batch_time.update(time.time() - end)

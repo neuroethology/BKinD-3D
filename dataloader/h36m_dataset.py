@@ -23,8 +23,11 @@ def generate_pair_images(root, subjects, actions, gap=20):
 
     for subject in subjects:
         subject_root = os.path.join(root, subject)
-        calib_file = os.path.join(root, subject, "calibration.toml")
-        calibration = toml.load(calib_file)
+
+        # TODO: Add calibration
+        # calib_file = os.path.join(root, subject, "calibration.toml")
+        # calibration = toml.load(calib_file)
+        calibration = None
 
         for action in actions:
             action_root = os.path.join(subject_root, action)
@@ -51,13 +54,14 @@ def generate_pair_images(root, subjects, actions, gap=20):
                 cam_frame[(cam_number, frame_number)] = i
 
             camera_names = sorted(set(camera_nums))
+            frame_names = sorted(set(frame_nums))
 
-            for framenum in range(max(frame_nums)):
+            for framenum in range(len(frame_names)):
                 bad = False
                 allcams_item = []
                 for cam_name in camera_names:
-                    ix_1 = cam_frame.get((cam_name, framenum), None)
-                    ix_2 = cam_frame.get((cam_name, framenum+gap), None)
+                    ix_1 = cam_frame.get((cam_name, frame_names[framenum]), None)
+                    ix_2 = cam_frame.get((cam_name, frame_names[min(framenum+gap, len(frame_names)-1)]), None)
                     if ix_1 is None or ix_2 is None:
                         bad = True
                         break
@@ -88,8 +92,8 @@ class H36MDataset(data.Dataset):
         subjects = ['S1', 'S5', 'S6', 'S7', 'S8']
 
         if simplified:
-            actions = ['Waiting-1', 'Waiting-2', 'Posing-1', 'Posing-2', 'Greeting-1', 'Greeting-2',
-                       'Directions-1', 'Directions-2', 'Discussion-1', 'Discussion-2', 'Walking-1', 'Walking-2']
+        actions = ['Waiting-1', 'Waiting-2', 'Posing-1', 'Posing-2', 'Greeting-1', 'Greeting-2',
+                  'Directions-1', 'Directions-2', 'Discussion-1', 'Discussion-2', 'Walking-1', 'Walking-2']
         else:
             actions = ['Directions-1', 'Eating-1', 'Phoning-1', 'Purchases-1',
                        'SittingDown-1', 'TakingPhoto-1', 'Walking-1', 'WalkingTogether-1',
@@ -120,41 +124,62 @@ class H36MDataset(data.Dataset):
 
     def __getitem__(self, index):
         
-        img_path0, img_path1, bbox0, bbox1 = self.samples[index]
+        image_dict = self.samples[index]
 
-        if self.crop_box:
-            im0 = self.loader(img_path0, bbox0)
-            im1 = self.loader(img_path1, bbox0)
-        else:
-            im0 = self.loader(img_path0)
-            im1 = self.loader(img_path1)
+        # Assume same number of cameras for all samples.
+        num_cameras = len(image_dict['items'])
 
-        height, width = self._image_size[:2]
+        all_cam_items = {'image' : [],
+                        'mask' : [],
+                        'rotation' : [],
+                        'image_path' : []}
 
-        image0 = torchvision.transforms.Resize((height, width))(im0)
-        image1 = torchvision.transforms.Resize((height, width))(im1)
+        for i in range(num_cameras):
+            img_path0, img_path1, bbox0, bbox1 = image_dict['items'][i]
+            # Not using calibration for now.
 
-        # Create 3 rotations
-        deg = 90
-        rot_image1 = TF.rotate(image1, deg)
-        rot_image1 = self.target_transform(rot_image1)
+            if self.crop_box:
+                im0 = self.loader(img_path0, bbox0)
+                im1 = self.loader(img_path1, bbox0)
+            else:
+                im0 = self.loader(img_path0)
+                im1 = self.loader(img_path1)
 
-        deg = 180
-        rot_image2 = TF.rotate(image1, deg)
-        rot_image2 = self.target_transform(rot_image2)
+            height, width = self._image_size[:2]
 
-        deg = -90
-        rot_image3 = TF.rotate(image1, deg)
-        rot_image3 = self.target_transform(rot_image3)
+            image0 = torchvision.transforms.Resize((height, width))(im0)
+            image1 = torchvision.transforms.Resize((height, width))(im1)
 
-        if self.transform is not None:
-            image0 = self.transform(image0)
-        if self.target_transform is not None:
-            image1 = self.target_transform(image1)
+            # Create 3 rotations
+            deg = 90
+            rot_image1 = TF.rotate(image1, deg)
+            rot_image1 = self.target_transform(rot_image1)
 
-        mask = torch.ones((1, height, width))
+            deg = 180
+            rot_image2 = TF.rotate(image1, deg)
+            rot_image2 = self.target_transform(rot_image2)
 
-        return (image0, image1, mask, mask, rot_image1, rot_image2, rot_image3, img_path0, img_path1)
+            deg = -90
+            rot_image3 = TF.rotate(image1, deg)
+            rot_image3 = self.target_transform(rot_image3)
+
+            if self.transform is not None:
+                image0 = self.transform(image0)
+            if self.target_transform is not None:
+                image1 = self.target_transform(image1)
+
+            mask = torch.ones((1, height, width))
+
+            # all_cam_items['camera_' + str(i)] = (image0, image1, mask, mask, rot_image1,
+            # rot_image2, rot_image3, img_path0, img_path1)
+
+            all_cam_items['image'].append((image0, image1))
+            all_cam_items['mask'].append((mask, mask))            
+            all_cam_items['rotation'].append((rot_image1, rot_image2, rot_image3))
+            all_cam_items['image_path'].append((img_path0, img_path1))            
+
+        # Store num_cameras? Not necessary if all the same 
+        return all_cam_items
 
 
     def __len__(self):
