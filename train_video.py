@@ -207,8 +207,6 @@ def validate(val_loader, model, loss_module, epoch, args):
     with torch.no_grad():
         end = time.time()
         for i, all_cam_items in enumerate(val_loader):
-            # measure data loading time
-            data_time.update(time.time() - end)
 
             # Compute reconstruction loss over each camera view
             for cam_num in range(len(all_cam_items['image'])):
