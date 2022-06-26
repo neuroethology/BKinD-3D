@@ -92,8 +92,8 @@ class H36MDataset(data.Dataset):
         subjects = ['S1', 'S5', 'S6', 'S7', 'S8']
 
         if simplified:
-        actions = ['Waiting-1', 'Waiting-2', 'Posing-1', 'Posing-2', 'Greeting-1', 'Greeting-2',
-                  'Directions-1', 'Directions-2', 'Discussion-1', 'Discussion-2', 'Walking-1', 'Walking-2']
+            actions = ['Waiting-1', 'Waiting-2', 'Posing-1', 'Posing-2', 'Greeting-1', 'Greeting-2',
+                'Directions-1', 'Directions-2', 'Discussion-1', 'Discussion-2', 'Walking-1', 'Walking-2']
         else:
             actions = ['Directions-1', 'Eating-1', 'Phoning-1', 'Purchases-1',
                        'SittingDown-1', 'TakingPhoto-1', 'Walking-1', 'WalkingTogether-1',
