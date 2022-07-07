@@ -163,6 +163,8 @@ class Model(nn.Module):
         heatmap = self.ch_softmax(heatmap)
         heatmap = heatmap.view(-1, self.K, kpt_out[-1].size(2), kpt_out[-1].size(3))
                 
+        confidence = heatmap.max(dim=-1)[0].max(dim=-1)[0]
+                
         u_x, u_y, covs = self._mapTokpt(heatmap)   
         
         if tr_x is None:
@@ -190,6 +192,7 @@ class Model(nn.Module):
         return_dict['recon'] = recon
         return_dict['tr_pos'] = (tr_u_x, tr_u_y)
         return_dict['pos'] = (u_x, u_y)
+        return_dict['confidence'] = confidence
         return_dict['tr_heatmap'] = tr_kpt_conds[-1]
         return_dict['tr_kpt_out'] = tr_kpt_out[-1]
         return_dict['tr_confidence'] = tr_confidence
@@ -240,6 +243,51 @@ class Model(nn.Module):
         return return_dict
         #return recon, (tr_u_x, tr_u_y), tr_kpt_conds[-1], tr_kpt_out[-1], (u_x, u_y), tr_confidence
     
+
+    def cross_view_recon(self, x, u_x, u_y, tr_u_x, tr_u_y):
+        
+        return_dict = {}
+
+        x_res = self.encoder(x)
+        
+        # Get keypoints of x
+        kpt_feat, kpt_out = self.kptNet(x_res)  # keypoint for reconstruction
+        
+        # Reconstruction module
+        heatmap = kpt_out[-1].view(-1, self.K, kpt_out[-1].size(2) * kpt_out[-1].size(3))
+        heatmap = self.ch_softmax(heatmap)
+        heatmap = heatmap.view(-1, self.K, kpt_out[-1].size(2), kpt_out[-1].size(3))
+                
+        # u_x, u_y, covs = self._mapTokpt(heatmap)   
+
+        tr_kpt_conds = []
+        
+        prev_w, prev_h = int(self.output_shape[0]/16), int(self.output_shape[1]/16)
+        std_in = [0.1, 0.1, 0.01, 0.01, 0.001]
+        
+        for i in range(0, 5):
+            prev_h *= 2;  prev_w *= 2
+            
+            # _We can concatenate both keypoint representation
+            hmaps = self._kptTomap(tr_u_x, tr_u_y, H=prev_h, W=prev_w, inv_std=std_in[i], normalize=False)
+
+            hmaps_2 = self._kptTomap(u_x, u_y, H=prev_h, W=prev_w, inv_std=std_in[i], normalize=False)
+
+            hmaps = torch.cat([hmaps, hmaps_2], dim = 1)
+
+            tr_kpt_conds.append(hmaps)
+            
+        recon = self.decoder(x_res, tr_kpt_conds)
+
+        return_dict['recon'] = recon
+        # return_dict['tr_pos'] = (tr_u_x, tr_u_y)
+        # return_dict['pos'] = (u_x, u_y)
+        # return_dict['tr_heatmap'] = tr_kpt_conds[-1]
+        # return_dict['tr_kpt_out'] = tr_kpt_out[-1]
+        # return_dict['tr_confidence'] = tr_confidence
+ 
+        return return_dict
+
         
     def _mapTokpt(self, heatmap):
         # heatmap: (N, K, H, W)    

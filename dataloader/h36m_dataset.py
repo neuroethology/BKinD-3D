@@ -15,6 +15,10 @@ import h5py
 
 from dataloader.data_utils import *
 
+import cv2
+
+import toml
+
 
 def generate_pair_images(root, subjects, actions, gap=20):
     images = []
@@ -24,10 +28,8 @@ def generate_pair_images(root, subjects, actions, gap=20):
     for subject in subjects:
         subject_root = os.path.join(root, subject)
 
-        # TODO: Add calibration
-        # calib_file = os.path.join(root, subject, "calibration.toml")
-        # calibration = toml.load(calib_file)
-        calibration = None
+        calib_file = os.path.join(root, subject, "calibration.toml")
+        calibration = toml.load(calib_file)
 
         for action in actions:
             action_root = os.path.join(subject_root, action)
@@ -56,7 +58,7 @@ def generate_pair_images(root, subjects, actions, gap=20):
             camera_names = sorted(set(camera_nums))
             frame_names = sorted(set(frame_nums))
 
-            for framenum in range(len(frame_names)):
+            for framenum in range(len(frame_names)//10):
                 bad = False
                 allcams_item = []
                 for cam_name in camera_names:
@@ -81,6 +83,16 @@ def generate_pair_images(root, subjects, actions, gap=20):
     return images
 
 
+def make_M(rvec, tvec):
+    out = np.zeros((4,4))
+    rotmat, _ = cv2.Rodrigues(np.array(rvec))
+    out[:3,:3] = rotmat
+    out[:3, 3] = np.array(tvec).flatten()
+    out[3, 3] = 1
+    return out        
+
+
+
 class H36MDataset(data.Dataset):
     """DataLoader for Human 3.6M dataset
     """
@@ -89,10 +101,11 @@ class H36MDataset(data.Dataset):
                  loader=box_loader, image_size=[128, 128],
                  simplified=False, crop_box=True, frame_gap=20):
 
-        subjects = ['S1', 'S5', 'S6', 'S7', 'S8']
+        subjects = ['S1', 'S5', 'S6', 'S7', 'S8'] 
 
         if simplified:
-            actions = ['Waiting-1', 'Waiting-2', 'Posing-1', 'Posing-2', 'Greeting-1', 'Greeting-2',
+            actions = ['Waiting-1', 'Waiting-2', 
+                'Posing-1', 'Posing-2', 'Greeting-1', 'Greeting-2',
                 'Directions-1', 'Directions-2', 'Discussion-1', 'Discussion-2', 'Walking-1', 'Walking-2']
         else:
             actions = ['Directions-1', 'Eating-1', 'Phoning-1', 'Purchases-1',
@@ -132,7 +145,8 @@ class H36MDataset(data.Dataset):
         all_cam_items = {'image' : [],
                         'mask' : [],
                         'rotation' : [],
-                        'image_path' : []}
+                        'image_path' : [],
+                        'calibration': []}
 
         for i in range(num_cameras):
             img_path0, img_path1, bbox0, bbox1 = image_dict['items'][i]
@@ -176,7 +190,25 @@ class H36MDataset(data.Dataset):
             all_cam_items['image'].append((image0, image1))
             all_cam_items['mask'].append((mask, mask))            
             all_cam_items['rotation'].append((rot_image1, rot_image2, rot_image3))
-            all_cam_items['image_path'].append((img_path0, img_path1))            
+            all_cam_items['image_path'].append((img_path0, img_path1))     
+
+        # Process calibration
+
+        # The calibration ordering here have to be the same as looping through all cameras above
+        calib = image_dict['calibration']
+        items = sorted(calib.items())
+        cam_names = [d['name'] for c, d in items]
+        intrinsics = [d['matrix'] for c, d in items]
+        distortions = [d['distortions'] for c, d in items]
+        extrinsics = [make_M(d['rotation'], d['translation']) for c, d in items]
+
+        intrinsics = torch.as_tensor(np.array(intrinsics), dtype=torch.float32)
+        extrinsics = torch.as_tensor(np.array(extrinsics), dtype=torch.float32)
+        distortions = torch.as_tensor(np.array(distortions), dtype=torch.float32)
+
+        all_cam_items['calib_intrinsics'] = intrinsics
+        all_cam_items['calib_extrinsics'] = extrinsics
+        all_cam_items['calib_distortions'] = distortions
 
         # Store num_cameras? Not necessary if all the same 
         return all_cam_items
