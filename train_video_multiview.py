@@ -181,6 +181,23 @@ def triangulate_simple(points, camera_mats, conf):
     p3d = p3d[:3] / p3d[3]
     return p3d
 
+def triangulate_batch(points, camera_mats, scores=None):
+    """Given a CxNx2 array of points and Cx4x4 array of extrinsics,
+    this returns a Nx3 array of points,
+    where N is the number of points and C is the number of cameras.
+    Optionally also takes a CxN array of scores for points."""
+    # we build an A matrix that is (num_cams, num_points, 2d, 4)
+    A_base = camera_mats[:, None, 2:3].broadcast_to(num_cams, 1, 2, 4)
+    A = points[:, :, :,None] * A_base - camera_mats[:, None, :2]
+    if scores is not None:
+        A = A * scores[:, :, None, None]
+    # now shape A matrix to (num_points, num_cams*2, 4)
+    A = A.swapaxes(0, 1).reshape(-1, num_cams*2, 4)
+    u, s, vh = torch.linalg.svd(A, full_matrices=True)
+    p3d = vh[:, -1]
+    p3d = p3d[:, :3] / p3d[:,3:4]
+    return p3d
+
 def project_points(points_3d, camera_params):
     extrinsics = camera_params['extrinsics']
     intrinsics = camera_params['intrinsics']
@@ -194,15 +211,16 @@ def project_points(points_3d, camera_params):
     proj_2d = torch.stack(proj_2d)
     return proj_2d
 
-def triangulate_points_full(points_2d, camera_params, confidence):
+def triangulate_points_full(points_2d, camera_params, confidence=None):
     extrinsics = camera_params['extrinsics']
     intrinsics = camera_params['intrinsics']
     distortions = camera_params['distortions']
     pts_2d_und = torch.stack(
         [undistort_torch(points_2d[i], intrinsics[i], distortions[i])
          for i in range(len(intrinsics))])
-    pts_3d = torch.stack([triangulate_simple(pts_2d_und[:, i], extrinsics, confidence[:, i])
-                          for i in range(pts_2d_und.shape[1])])
+    # pts_3d = torch.stack([triangulate_simple(pts_2d_und[:, i], extrinsics, confidence[:, i])
+    #                       for i in range(pts_2d_und.shape[1])])
+    pts_3d = triangulate_batch(pts_2d_und, extrinsics, confidence)
     return pts_3d
 
 
