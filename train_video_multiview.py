@@ -187,6 +187,8 @@ def triangulate_batch(points, camera_mats, scores=None):
     where N is the number of points and C is the number of cameras.
     Optionally also takes a CxN array of scores for points."""
     # we build an A matrix that is (num_cams, num_points, 2d, 4)
+    num_cams = len(camera_mats)
+
     A_base = camera_mats[:, None, 2:3].broadcast_to(num_cams, 1, 2, 4)
     A = points[:, :, :,None] * A_base - camera_mats[:, None, :2]
     if scores is not None:
