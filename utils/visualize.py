@@ -9,7 +9,89 @@ import seaborn as sns
 
 import cv2
 
-__all__ = ['show_heatmaps', 'show_img_with_heatmap', 'visualize_with_circles', 'save_images']
+__all__ = ['show_heatmaps', 'show_img_with_heatmap', 'visualize_with_circles', 'save_images',
+            'save_3d_images', 'save_multi_images']
+
+
+def save_multi_images(image_list, tr_pos, recon, tr_heatmap, tr_confidence, epoch, args, curr_epoch):
+    mean=[0.485, 0.456, 0.406]
+    _mean = np.asarray(mean).reshape((3,1,1))
+    std=[0.229, 0.224, 0.225]
+    _std = np.asarray(std).reshape((3,1,1))
+    
+    # Image with keypoints
+    im_dir = os.path.join(args.checkpoint, 'multiview_samples/epoch_' + str(curr_epoch)) #, str(sample_id)+'.png')
+    
+    if not os.path.isdir(im_dir):
+        os.makedirs(im_dir)
+    
+    sample_ids = np.random.permutation(len(image_list[0][1]))
+    
+    sample_ids = sample_ids[:min(5, len(image_list[0][1]))]
+
+    
+    for idx in range(len(image_list)):
+        image = image_list[idx][1] #tr_im
+        im = image.data.cpu().numpy()
+        
+        kps = tr_pos[idx]
+        
+        reconstruction = recon[idx]
+        heatmap = tr_heatmap[idx]
+        confidence = tr_confidence[idx]
+        # keypoints
+        xy = kps #torch.stack((kps[0], kps[1]), dim=2)
+        
+        for i, ix in enumerate(sample_ids):
+        # Visualize keypoints
+            im_with_pts = visualize_with_circles(im[ix], xy[ix].data.cpu().numpy()+1, confidence[ix],
+                                              mean=mean, std=std)
+            im_with_pts = im_with_pts.astype('uint8')
+            im_with_pts = cv2.cvtColor(im_with_pts, cv2.COLOR_RGB2BGR)
+            cv2.imwrite(os.path.join(im_dir, 'image_'+str(i)+"_camera"+str(idx)+'.png'), im_with_pts)
+
+#         # Heatmap
+            heatmaps = show_heatmaps(heatmap[ix])
+            heatmaps = (heatmaps.data.cpu().numpy() * 255).astype('uint8')
+            heatmaps = heatmaps.transpose((1,2,0))
+            cv2.imwrite(os.path.join(im_dir, 'heatmaps_'+str(i)+"_camera"+str(idx)+'.png'), heatmaps)
+
+#         # Reconstruction
+            recon_im = reconstruction[ix].data.cpu().numpy()
+            recon_im = (recon_im * _std + _mean) * 255
+            recon_im = recon_im.astype('uint8')
+            recon_im = recon_im.transpose((1,2,0))
+            cv2.imwrite(os.path.join(im_dir, 'recon_'+str(i)+"_camera"+str(idx)+'.png'), recon_im)
+
+
+def save_3d_images(output, epoch, args, curr_epoch):
+    # this is for reconstructed image keypoints....
+    # mean = [0.485, 0.456, 0.406]
+    # _mean = np.asarray(mean).reshape((3, 1, 1))
+    # std = [0.229, 0.224, 0.225]
+    # _std = np.asarray(std).reshape((3, 1, 1))
+
+    # Image with keypoints
+    im_dir = os.path.join(args.checkpoint, 'samples/epoch_' + str(curr_epoch) + '_3d')  # , str(sample_id)+'.png')
+
+    sample_id = 0
+    if not os.path.isdir(im_dir):
+        os.makedirs(im_dir)
+
+    # keypoints for 3d image output
+    kps = output
+
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+
+    # for m, zlow, zhigh in [('o', -10, -5), ('^', -10, -5)]:
+    ax.scatter(kps[:, 0], kps[:, 1], kps[:, 2], marker='o')
+
+    ax.set_xlabel('X Label')
+    ax.set_ylabel('Y Label')
+    ax.set_zlabel('Z Label')
+
+    plt.savefig(os.path.join(im_dir, str(sample_id) + '.png'))
 
 
 def save_images(image, output, epoch, args, curr_epoch):

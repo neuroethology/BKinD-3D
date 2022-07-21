@@ -15,7 +15,7 @@ from model.unsupervised_model import Model
 
 from loss.compute_loss import *
 
-from utils import Logger, mkdir_p, save_images
+from utils import Logger, mkdir_p, save_images, save_3d_images, save_multi_images
 from utils.model_utils import *
 import cv2
 import numpy as np
@@ -254,6 +254,9 @@ def train(train_loader, model, loss_module, loss_3d, optimizer, epoch, args):
         all_cam_conf = []
         all_cam_conf_ori = []
 
+        all_cam_recon = []
+        all_cam_heatmap = []
+
         loss = 0
 
         for cam_num in range(len(all_cam_items['image'])):
@@ -280,6 +283,8 @@ def train(train_loader, model, loss_module, loss_3d, optimizer, epoch, args):
 
             all_cam_conf.append(output['tr_confidence'])
             all_cam_conf_ori.append(output['confidence'])
+            all_cam_recon.append(output['recon'])
+            all_cam_heatmap.append(output['tr_heatmap'])            
 
             loss += loss_module.update_loss(inputs, tr_inputs, loss_mask, output, epoch)
             
@@ -334,8 +339,14 @@ def train(train_loader, model, loss_module, loss_3d, optimizer, epoch, args):
             projected_points = torch.stack(projected_points, dim = 0).clip(-1, 1)
             projected_points_ori = torch.stack(projected_points_ori, dim = 0).clip(-1, 1)
 
+            ## 3D Separation Loss
+            # TODO: Make the loss module a dictionary
+            sep_loss = loss_module.criterion[2]
+            loss += sep_loss.loss_3d(projected_points)
+            loss += sep_loss.loss_3d(projected_points_ori)            
+
             tester = (full_points/500-1).clone().detach()
-            loss2 = (torch.sum((projected_points - tester) ** 2, dim = -1)).mean()*10
+            loss2 = (torch.sum((projected_points - tester) ** 2, dim = -1)).mean()
             loss += loss2
             print("Reprojection: " + str(loss2))
 
@@ -381,7 +392,13 @@ def train(train_loader, model, loss_module, loss_3d, optimizer, epoch, args):
             progress.display(i)
             
             if args.visualize:
+
+                save_multi_images(all_cam_items['image'], all_cam_points, all_cam_recon, 
+                    all_cam_heatmap, all_cam_conf, epoch, args, epoch)                
                 # print(output['tr_pos'][0].size(), projected_points[:, :, 0].size())
+                save_3d_images(pts_3d.detach().cpu(), epoch, args, epoch)
+
+
                 save_images(tr_inputs, output, epoch, args, epoch)
 
                 if epoch >= args.curriculum:
