@@ -90,8 +90,43 @@ def save_3d_images(output, epoch, args, curr_epoch):
     ax.set_xlabel('X Label')
     ax.set_ylabel('Y Label')
     ax.set_zlabel('Z Label')
-
     plt.savefig(os.path.join(im_dir, str(sample_id) + '.png'))
+
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+
+    # for m, zlow, zhigh in [('o', -10, -5), ('^', -10, -5)]:
+    ax.scatter(kps[:, 0], kps[:, 1], kps[:, 2], marker='o')
+
+    ax.set_xlabel('X Label')
+    ax.set_ylabel('Y Label')
+    ax.set_zlabel('Z Label')
+    ax.view_init(azim=90)
+    plt.savefig(os.path.join(im_dir, str(sample_id) + '_90.png'))
+
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+
+    # for m, zlow, zhigh in [('o', -10, -5), ('^', -10, -5)]:
+    ax.scatter(kps[:, 0], kps[:, 1], kps[:, 2], marker='o')
+
+    ax.set_xlabel('X Label')
+    ax.set_ylabel('Y Label')
+    ax.set_zlabel('Z Label')
+    ax.view_init(azim=180)
+    plt.savefig(os.path.join(im_dir, str(sample_id) + '_180.png'))
+
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+
+    # for m, zlow, zhigh in [('o', -10, -5), ('^', -10, -5)]:
+    ax.scatter(kps[:, 0], kps[:, 1], kps[:, 2], marker='o')
+
+    ax.set_xlabel('X Label')
+    ax.set_ylabel('Y Label')
+    ax.set_zlabel('Z Label')
+    ax.view_init(elev=120, azim=60)
+    plt.savefig(os.path.join(im_dir, str(sample_id) + '_elevated.png'))
 
 
 def save_images(image, output, epoch, args, curr_epoch):
