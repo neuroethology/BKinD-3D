@@ -59,6 +59,14 @@ class computeLoss:
 
             loss += l.mean()
 
+
+        if 'tr_pos' in output.keys():
+            separation = self.criterion[2](output['tr_pos'])
+            loss += separation.mean()
+
+            separation = self.criterion[2](output['pos'])
+            loss += separation.mean()        
+
         if epoch >= self.args.curriculum and 'gmtr_heatmap' in output.keys():
             deg = torch.ones((output['gmtr_heatmap'][0].size()[0])).to(device) * 90
             rot_loss, rot_label = self.criterion[3](output['tr_heatmap'][:, :self.args.nkpts], output['gmtr_heatmap'][0], deg)

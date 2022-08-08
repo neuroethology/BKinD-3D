@@ -149,7 +149,7 @@ def save_images(image, output, epoch, args, curr_epoch):
     kps = output['tr_pos']
     recon = output['recon']
 
-    heatmap = output['tr_heatmap']
+    heatmap = output['tr_kpt_out']
     confidence = output['tr_confidence']
         
     # keypoints
