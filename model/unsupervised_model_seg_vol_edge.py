@@ -354,6 +354,9 @@ class Model(nn.Module):
 
         self.kptNet = globalNet(channel_settings, output_shape, n_kps)
 
+        self.volume_size = 64
+        self.cuboid_side = 12500
+        
         self.ch_softmax = nn.Softmax(dim=2)
         self.sigmoid = nn.Sigmoid()
         
