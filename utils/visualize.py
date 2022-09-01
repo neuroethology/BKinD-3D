@@ -10,10 +10,10 @@ import seaborn as sns
 import cv2
 
 __all__ = ['show_heatmaps', 'show_img_with_heatmap', 'visualize_with_circles', 'save_images',
-            'save_3d_images', 'save_multi_images']
+            'save_3d_images', 'save_multi_images', 'save_images_2']
 
 
-def save_multi_images(image_list, tr_pos, recon, tr_heatmap, tr_confidence, epoch, args, curr_epoch):
+def save_multi_images(image_list, pos, tr_pos, recon, tr_heatmap, tr_heatmap_cond, tr_confidence, epoch, args, curr_epoch):
     mean=[0.485, 0.456, 0.406]
     _mean = np.asarray(mean).reshape((3,1,1))
     std=[0.229, 0.224, 0.225]
@@ -31,13 +31,20 @@ def save_multi_images(image_list, tr_pos, recon, tr_heatmap, tr_confidence, epoc
 
     
     for idx in range(len(image_list)):
-        image = image_list[idx][1] #tr_im
+        image = image_list[idx][0] #tr_im
         im = image.data.cpu().numpy()
         
-        kps = tr_pos[idx]
+        kps = pos[idx]
         
+        tr_image = image_list[idx][1] #tr_im
+        tr_im = tr_image.data.cpu().numpy()
+        
+        tr_kps = tr_pos[idx]
+
         reconstruction = recon[idx]
         heatmap = tr_heatmap[idx]
+        heatmap_cond = tr_heatmap_cond[idx]
+
         confidence = tr_confidence[idx]
         # keypoints
         xy = kps #torch.stack((kps[0], kps[1]), dim=2)
@@ -50,11 +57,26 @@ def save_multi_images(image_list, tr_pos, recon, tr_heatmap, tr_confidence, epoc
             im_with_pts = cv2.cvtColor(im_with_pts, cv2.COLOR_RGB2BGR)
             cv2.imwrite(os.path.join(im_dir, 'image_'+str(i)+"_camera"+str(idx)+'.png'), im_with_pts)
 
+
+            im_with_pts = visualize_with_circles(tr_im[ix], tr_kps[ix].data.cpu().numpy()+1, confidence[ix],
+                                              mean=mean, std=std)
+            im_with_pts = im_with_pts.astype('uint8')
+            im_with_pts = cv2.cvtColor(im_with_pts, cv2.COLOR_RGB2BGR)
+            cv2.imwrite(os.path.join(im_dir, 'image_'+str(i)+"_camera"+str(idx)+'_tr.png'), im_with_pts)
+
+
 #         # Heatmap
             heatmaps = show_heatmaps(heatmap[ix])
             heatmaps = (heatmaps.data.cpu().numpy() * 255).astype('uint8')
             heatmaps = heatmaps.transpose((1,2,0))
             cv2.imwrite(os.path.join(im_dir, 'heatmaps_'+str(i)+"_camera"+str(idx)+'.png'), heatmaps)
+
+#         # Heatmap
+            heatmaps = show_heatmaps(heatmap_cond[ix])
+            heatmaps = (heatmaps.data.cpu().numpy() * 255).astype('uint8')
+            heatmaps = heatmaps.transpose((1,2,0))
+            cv2.imwrite(os.path.join(im_dir, 'heatmaps_cond_'+str(i)+"_camera"+str(idx)+'.png'), heatmaps)
+
 
 #         # Reconstruction
             recon_im = reconstruction[ix].data.cpu().numpy()
@@ -150,6 +172,63 @@ def save_images(image, output, epoch, args, curr_epoch):
     recon = output['recon']
 
     heatmap = output['tr_kpt_out']
+
+    heatmap_cond = output['tr_kpt_cond']
+
+    confidence = output['tr_confidence']
+        
+    # keypoints
+    xy = torch.stack((kps[0], kps[1]), dim=2)
+    
+    for i, ix in enumerate(sample_ids):
+        # Visualize keypoints
+        im_with_pts = visualize_with_circles(im[ix], xy[ix].data.cpu().numpy()+1, confidence[ix],
+                                             mean=mean, std=std)
+        im_with_pts = im_with_pts.astype('uint8')
+        im_with_pts = cv2.cvtColor(im_with_pts, cv2.COLOR_RGB2BGR)
+        cv2.imwrite(os.path.join(im_dir, 'image_'+str(i)+'.png'), im_with_pts)
+
+        # Heatmap
+        heatmaps = show_heatmaps(heatmap[ix])
+        heatmaps = (heatmaps.data.cpu().numpy() * 255).astype('uint8')
+        heatmaps = heatmaps.transpose((1,2,0))
+        cv2.imwrite(os.path.join(im_dir, 'heatmaps_'+str(i)+'.png'), heatmaps)
+
+        # Heatmap
+        heatmaps = show_heatmaps(heatmap_cond[ix])
+        heatmaps = (heatmaps.data.cpu().numpy() * 255).astype('uint8')
+        heatmaps = heatmaps.transpose((1,2,0))
+        cv2.imwrite(os.path.join(im_dir, 'edge_heatmaps_'+str(i)+'.png'), heatmaps)
+
+        # Reconstruction
+        recon_im = recon[ix].data.cpu().numpy()
+        recon_im = (recon_im * _std + _mean) * 255
+        recon_im = recon_im.astype('uint8')
+        recon_im = recon_im.transpose((1,2,0))
+        cv2.imwrite(os.path.join(im_dir, 'recon_'+str(i)+'.png'), recon_im)
+    
+
+def save_images_2(image, output, epoch, args, curr_epoch):
+    mean=[0.485, 0.456, 0.406]
+    _mean = np.asarray(mean).reshape((3,1,1))
+    std=[0.229, 0.224, 0.225]
+    _std = np.asarray(std).reshape((3,1,1))
+        
+    # Image with keypoints
+    im_dir = os.path.join(args.checkpoint, 'samples/epoch_' + str(curr_epoch)) #, str(sample_id)+'.png')
+    
+    if not os.path.isdir(im_dir):
+        os.makedirs(im_dir)
+        
+    sample_ids = np.random.permutation(len(output['recon']))
+    sample_ids = sample_ids[:min(5, len(output['recon']))]
+    
+    im = image.data.cpu().numpy()
+    
+    kps = output['tr_pos'][-1]
+    recon = output['recon'][-1]
+
+    heatmap = output['tr_kpt_out'][-1]
     confidence = output['tr_confidence']
         
     # keypoints
@@ -175,7 +254,7 @@ def save_images(image, output, epoch, args, curr_epoch):
         recon_im = recon_im.astype('uint8')
         recon_im = recon_im.transpose((1,2,0))
         cv2.imwrite(os.path.join(im_dir, 'recon_'+str(i)+'.png'), recon_im)
-    
+
 
 # functions to show an image
 def make_image(img, mean=(0,0,0), std=(1,1,1)):
