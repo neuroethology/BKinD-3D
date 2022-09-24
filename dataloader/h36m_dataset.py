@@ -46,6 +46,8 @@ def generate_pair_images(root, subjects, actions, gap=20):
             y_max = np.max(annos['pose']['2d'][()][:, :, 1], axis = -1)
             x_max = np.max(annos['pose']['2d'][()][:, :, 0], axis = -1)
 
+            pose_3d = annos['pose']['3d'][()]
+
             camera_nums = annos['camera'][()]
             frame_nums = annos['frame'][()]
 
@@ -58,7 +60,12 @@ def generate_pair_images(root, subjects, actions, gap=20):
             camera_names = sorted(set(camera_nums))
             frame_names = sorted(set(frame_nums))
 
-            for framenum in range(len(frame_names)//10):
+            for framenum in range(0, len(frame_names), 10):
+
+                ################################
+                # framenum = 0
+                ################################
+
                 bad = False
                 allcams_item = []
                 for cam_name in camera_names:
@@ -73,12 +80,13 @@ def generate_pair_images(root, subjects, actions, gap=20):
                     im1 = os.path.join(img_root, str(cam_name), name_1)
                     bbox0 = [y_min[ix_1], x_min[ix_1], y_max[ix_1], x_max[ix_1]]
                     bbox1 = [y_min[ix_2], x_min[ix_2], y_max[ix_2], x_max[ix_2]]
-                    item = [im0, im1, bbox0, bbox1]
+                    item = [im0, im1, bbox0, bbox1, pose_3d[ix_1], pose_3d[ix_2]]
                     allcams_item.append(item)
                 if bad:
                     continue
                 images.append({"calibration": calibration,
                                "items": allcams_item})
+
 
     return images
 
@@ -101,7 +109,9 @@ class H36MDataset(data.Dataset):
                  loader=box_loader, image_size=[128, 128],
                  simplified=False, crop_box=True, frame_gap=20):
 
-        subjects = ['S1', 'S5', 'S6', 'S7', 'S8'] 
+        subjects = ['S1', 'S8' ] 
+
+        #  'S5','S6', 'S7',  
 
         if simplified:
             actions = ['Waiting-1', 'Waiting-2', 
@@ -115,6 +125,8 @@ class H36MDataset(data.Dataset):
                        'Discussion-1', 'Greeting-1', 'Posing-1', 'Sitting-1', 'Smoking-1',
                        'Waiting-1', 'WalkingDog-1', 'Discussion-2', 'Greeting-2', 'Posing-2',
                        'Sitting-2', 'Smoking-2', 'Waiting-2', 'WalkingDog-2']
+
+            # actions = ['Directions-1']            
 
         samples = generate_pair_images(root, subjects, actions, gap=frame_gap)
 
@@ -146,10 +158,11 @@ class H36MDataset(data.Dataset):
                         'mask' : [],
                         'rotation' : [],
                         'image_path' : [],
-                        'calibration': []}
+                        'calibration': [],
+                        'pose_3d': []}
 
         for i in range(num_cameras):
-            img_path0, img_path1, bbox0, bbox1 = image_dict['items'][i]
+            img_path0, img_path1, bbox0, bbox1, pose_3d_1, pose_3d_2  = image_dict['items'][i]
             # Not using calibration for now.
 
             if self.crop_box:
@@ -190,7 +203,8 @@ class H36MDataset(data.Dataset):
             all_cam_items['image'].append((image0, image1))
             all_cam_items['mask'].append((mask, mask))            
             all_cam_items['rotation'].append((rot_image1, rot_image2, rot_image3))
-            all_cam_items['image_path'].append((img_path0, img_path1))     
+            all_cam_items['image_path'].append((img_path0, img_path1))  
+            all_cam_items['pose_3d'].append((pose_3d_1, pose_3d_2))   
 
         # Process calibration
 

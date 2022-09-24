@@ -13,7 +13,7 @@ __all__ = ['show_heatmaps', 'show_img_with_heatmap', 'visualize_with_circles', '
             'save_3d_images', 'save_multi_images', 'save_images_2']
 
 
-def save_multi_images(image_list, pos, tr_pos, recon, tr_heatmap, tr_heatmap_cond, tr_confidence, epoch, args, curr_epoch):
+def save_multi_images(image_list, pos, tr_pos, recon, ssim, tr_heatmap, tr_heatmap_cond, tr_confidence, epoch, args, curr_epoch):
     mean=[0.485, 0.456, 0.406]
     _mean = np.asarray(mean).reshape((3,1,1))
     std=[0.229, 0.224, 0.225]
@@ -44,6 +44,8 @@ def save_multi_images(image_list, pos, tr_pos, recon, tr_heatmap, tr_heatmap_con
         reconstruction = recon[idx]
         heatmap = tr_heatmap[idx]
         heatmap_cond = tr_heatmap_cond[idx]
+
+        curr_ssim = ssim[idx]
 
         confidence = tr_confidence[idx]
         # keypoints
@@ -85,6 +87,12 @@ def save_multi_images(image_list, pos, tr_pos, recon, tr_heatmap, tr_heatmap_con
             recon_im = recon_im.transpose((1,2,0))
             cv2.imwrite(os.path.join(im_dir, 'recon_'+str(i)+"_camera"+str(idx)+'.png'), recon_im)
 
+
+            recon_im = curr_ssim[ix].data.cpu().numpy()
+            recon_im = (recon_im * _std + _mean) * 255
+            recon_im = recon_im.astype('uint8')
+            recon_im = recon_im.transpose((1,2,0))
+            cv2.imwrite(os.path.join(im_dir, 'recon_'+str(i)+"_camera"+str(idx)+'_ssim.png'), recon_im)
 
 def save_3d_images(output, epoch, args, curr_epoch):
     # this is for reconstructed image keypoints....
@@ -320,7 +328,7 @@ def visualize_with_circles(image, pts, confidence=None, scale=None, mean=[0.5,0.
         
     scale_x = (image.shape[1] / 2.0)
     scale_y = (image.shape[0] / 2.0)
-    circle_size = int(round(image.shape[1] / 60))
+    circle_size = int(round(image.shape[1] / 100))
     
     for i in range(0,pts.shape[0]):
         pt_y = int(pts[i,1]*scale_y)

@@ -5,6 +5,9 @@ import torchvision.transforms as transforms
 
 from dataloader import h36m_dataset as h36m
 from dataloader import mouse_dataset as mouse
+
+from dataloader import rat_dataset
+
 from dataloader import custom_dataset 
 
 from dataloader import data_utils
@@ -106,8 +109,39 @@ def load_dataloader(args):
                               image_size=[args.image_size, args.image_size],
                               loader=loader, frame_gap=args.frame_gap)
 
+    elif args.dataset == 'rat_dataset':
+        traindir = os.path.join(args.data)
+        valdir = os.path.join(args.data)
+
+        train_dataset = rat_dataset.RatDataset(traindir, transforms.Compose([
+                              transforms.Resize(args.image_size),
+                              transforms.CenterCrop(args.image_size),
+                              transforms.ToTensor(),
+                              normalize,]),
+                              target_transform=transforms.Compose([
+                              transforms.Resize(args.image_size),
+                              transforms.CenterCrop(args.image_size),
+                              transforms.ToTensor(),
+                              normalize,]),
+                              image_size=[args.image_size, args.image_size],
+                              loader=loader, frame_gap=args.frame_gap)
+
+        val_dataset = rat_dataset.RatDataset(valdir, transforms.Compose([
+                              transforms.Resize(args.image_size),
+                              transforms.CenterCrop(args.image_size),
+                              transforms.ToTensor(),
+                              normalize,]),
+                              target_transform=transforms.Compose([
+                              transforms.Resize(args.image_size),
+                              transforms.CenterCrop(args.image_size),
+                              transforms.ToTensor(),
+                              normalize,]),
+                              image_size=[args.image_size, args.image_size],
+                              loader=loader, frame_gap=args.frame_gap)
+
+
     else:
-        assert args.dataset in ["H36M", "CalMS21", "custom_dataset"], \
+        assert args.dataset in ["H36M", "CalMS21", "custom_dataset", 'rat_dataset'], \
         "Please write your own dataloader using custom_dataset.py and add your dataset name here"
 
     return train_dataset, val_dataset

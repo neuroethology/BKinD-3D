@@ -24,18 +24,27 @@ class separation_loss(nn.Module):
         return (dist_mat*mask_matrix).mean()*0.05
     
 
-    def loss_3d(self, input):
+    def loss_3d(self, input_3d):
 
         # input_1 = torch.stack([input[0], input[1]], dim = -1)
         # target = torch.stack([input[0], input[1]], dim = -1)
-        input_1 = input
-        target = input    
+        input_1 = input_3d
+        target = input_3d
+
+        # print(input_1)
         
         dist_mat = torch.cdist(input_1, target)**2
+
+        # print(dist_mat)
+
 
         mask_matrix = torch.ones((self.K, self.K)).fill_diagonal_(0).unsqueeze(0).to(input_1.device)
 
         dist_mat = torch.exp(-1*dist_mat/(2*0.08**2))
+
+        # print(dist_mat)
+        # print(mask_matrix)
+        # error
 
         return (dist_mat*mask_matrix).mean()*0.05
     

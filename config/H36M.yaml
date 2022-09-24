@@ -1,35 +1,35 @@
 # Dataset
 dataset: H36M
-data: data/H36M
+data: /home/ubuntu/efs/kp_discovery_h36m/h36m-fetch/processed
 
 # Training information
 workers: 4
-epochs: 30
+epochs: 100
 start_epoch: 0
 schedule: 30
-batch_size: 32
+batch_size: 1
 lr: 0.001
 momentum: 0.9
 weight_decay: 0.0001
 print_freq: 10
 pretrained: True
 gpu: 0
-val_schedule: 20
-curriculum: 4
+val_schedule: 200
+curriculum: 100
 visualize: True
 
 # Path to save checkpoint
-checkpoint: checkpoint/H36M
+checkpoint: checkpoint/H36M_clean_test
 # Specify number of keypoints
-nkpts: 10
+nkpts: 15
 
 # Hyperparameters
-image_size: 128
+image_size: 256
 frame_gap: 20
-bounding_box: True
+bounding_box: False
 
 perc_weight: [100.0, 1.6, 2.3, 1.8, 2.8, 100.0]
 
 # Specify model path
-# resume: checkpoint/CalMS21
+# resume: /home/ubuntu/efs/2022_exps/github/BKinD3D_multi_transformer/checkpoint/H36M_nocrop_256/checkpoint.pth.tar
 evaluate: False
