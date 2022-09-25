@@ -322,7 +322,7 @@ def train(train_loader, model, edge_weights, loss_module, loss_3d, optimizer,opt
         # all_cam_recon = []
         # all_cam_heatmap = []
 
-        loss = 0
+        # loss = 0
 
         for cam_num in range(len(all_cam_items['image'])):
             inputs, tr_inputs = all_cam_items['image'][cam_num]
@@ -360,7 +360,10 @@ def train(train_loader, model, edge_weights, loss_module, loss_3d, optimizer,opt
 
         output = model(all_cam_inputs, all_cam_tr_inputs, edge_weights, all_cams, all_cam_items)
 
-        loss += loss_module.update_loss_2(all_cam_inputs, all_cam_tr_inputs, loss_mask, output, epoch)    
+        # ori_loss, length_loss = loss_module.update_loss_3(all_cam_inputs, all_cam_tr_inputs, edge_weights, loss_mask, output, epoch)    
+
+        ori_loss, ssim_list = loss_module.update_loss_2(all_cam_inputs, all_cam_tr_inputs, loss_mask, output, epoch)    
+
 
         all_cam_points = [torch.stack(item, axis=2) for item in output['tr_pos']]
         all_cam_points_ori = [torch.stack(item, axis=2) for item in output['pos']]
@@ -485,6 +488,7 @@ def train(train_loader, model, edge_weights, loss_module, loss_3d, optimizer,opt
 
         ##########################################
 
+        loss = ori_loss #+ length_loss/100000
         # measure accuracy and record loss
         losses.update(loss.item(), inputs.size(0))
 
@@ -495,6 +499,9 @@ def train(train_loader, model, edge_weights, loss_module, loss_3d, optimizer,opt
         optimizer.step()
 
         # torch.nn.utils.clip_grad_norm_(edge_weights.parameters(), 10.0)
+
+        # optimizer_2.zero_grad()
+        # ori_loss.backward(retain_graph = True)
         optimizer_2.step()
 
         # measure elapsed time
@@ -508,7 +515,7 @@ def train(train_loader, model, edge_weights, loss_module, loss_3d, optimizer,opt
 
                 # print(all_cam_points)
                 save_multi_images(all_cam_items['image'], all_cam_points_ori,
-                    all_cam_points, output['recon'], 
+                    all_cam_points, output['recon'], ssim_list,
                     output['tr_kpt_out'], output['tr_kpt_cond'], 
                     [output['tr_confidence'],output['tr_confidence'],
                     output['tr_confidence'],output['tr_confidence']], epoch, args, epoch)                
