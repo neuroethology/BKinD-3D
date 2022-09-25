@@ -356,7 +356,7 @@ class Model(nn.Module):
 
         self.volume_size = 64
         self.cuboid_side = 12500
-
+        
         self.ch_softmax = nn.Softmax(dim=2)
         self.sigmoid = nn.Sigmoid()
         
@@ -590,6 +590,7 @@ class Model(nn.Module):
                 # 1 x 105 x 4 x 4
 
                 weighted = torch.einsum('mbch,b->mbch', hmaps, self.softplus(edge_weights))
+
 
                 hmaps, _ = torch.max(weighted, dim = 1, keepdim = True)
 
