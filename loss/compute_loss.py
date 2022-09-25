@@ -656,20 +656,12 @@ class computeLoss:
             running_average = _exp_running_avg(mean_distance, init_val = running_average)
 
         length_loss = 0
-        # length_loss += self.length_criterion(running_average[boolean_edge].unsqueeze(0).detach(), distances[:, boolean_edge])
-        # length_loss += self.length_criterion(running_average[boolean_edge].unsqueeze(0).detach(), distances_2[:, boolean_edge])
+        length_loss += self.length_criterion(running_average[boolean_edge].unsqueeze(0).detach(), distances[:, boolean_edge])
+        length_loss += self.length_criterion(running_average[boolean_edge].unsqueeze(0).detach(), distances_2[:, boolean_edge])
 
 
-        # # loss += length_loss/10000
-        # # print(distances, distances_2)
         print('Length', length_loss)
         # print(running_average)
-
-        # # Penalize disconnected edges?
-
-        # # print(output['pos_3d'].size(), output['tr_pos_3d'].size())
-        # print(output['pos_3d'], output['tr_pos_3d'])
-
 
         # #########################################################        
         # try:
