@@ -424,7 +424,7 @@ def train(train_loader, model, edge_weights, running_average, loss_module, loss_
         all_cam_points_ori = [torch.stack(item, axis=2) for item in output['pos']]
 
 
-        if epoch >= 4:
+        if epoch >= args.curriculum:
             ori_loss, length_loss, ssim_list, running_average = loss_module.update_loss_4(all_cam_inputs, all_cam_tr_inputs, running_average, output['samples'], loss_mask, output, epoch, args.nkpts)    
 
             loss = ori_loss + length_loss/1000000
