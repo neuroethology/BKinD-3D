@@ -109,7 +109,8 @@ class H36MDataset(data.Dataset):
                  loader=box_loader, image_size=[128, 128],
                  simplified=False, crop_box=True, frame_gap=20):
 
-        subjects = ['S1', 'S8' ] 
+        # subjects = ['S1', 'S8' ]
+        subjects = ['S1', 'S8', 'S5', 'S6', 'S7' ]
 
         #  'S5','S6', 'S7',  
 

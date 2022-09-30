@@ -45,7 +45,10 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # create model
     output_shape = (int(args.image_size/4), int(args.image_size/4))
-    model = Model(args.nkpts, output_shape=output_shape)
+    model = Model(args.nkpts, output_shape=output_shape,
+                  volume_size=args.volume_size,
+                  cuboid_side=args.cuboid_side,
+                  v2v_features=args.v2v_features)
 
 
     if args.gpu is not None:

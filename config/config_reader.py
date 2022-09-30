@@ -57,6 +57,12 @@ def create_parser():
                         help='use cropped bounding box for training')
     parser.add_argument('--curriculum', default=4, type=int,
                         help='apply rotation equivariance loss after N epochs')
+    parser.add_argument('--volume-size', default=64, type=int,
+                        help='volume size for V2V network')
+    parser.add_argument('--cuboid_side', default=7500, type=int,
+                        help='size of cuboid in units of dataset')
+    parser.add_argument('--v2v-features', default=128, type=int,
+                        help='number of features in V2V network')
 
     parser.add_argument('--config', default='config/CalMS21.yaml',
                         type=argparse.FileType(mode='r'))

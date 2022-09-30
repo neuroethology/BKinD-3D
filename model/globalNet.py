@@ -5,8 +5,9 @@ import torch
 import math
 
 class globalNet(nn.Module):
-    def __init__(self, channel_settings, output_shape, num_class):
+    def __init__(self, channel_settings, output_shape, num_class, v2v_features=128):
         super(globalNet, self).__init__()
+        self.v2v_features = v2v_features
         self.channel_settings = channel_settings
         laterals, upsamples, predict = [], [], []
         for i in range(len(channel_settings)):
@@ -58,7 +59,7 @@ class globalNet(nn.Module):
         # layers.append(nn.Upsample(size=output_shape, mode='bilinear', align_corners=True))
         # layers.append(nn.BatchNorm2d(num_class))
 
-        layers.append(nn.Conv2d(256, 128,
+        layers.append(nn.Conv2d(256, self.v2v_features,
             kernel_size=1, stride=1, padding=1, bias=False))
 
 

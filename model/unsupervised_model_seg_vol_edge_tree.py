@@ -592,7 +592,8 @@ def rotate_coord_volume(coord_volume, theta, axis):
     return coord_volume
 
 class Model(nn.Module):
-    def __init__(self, n_kps=10, output_dim=200, pretrained=True, output_shape=(64, 64)):
+    def __init__(self, n_kps=10, output_dim=200, pretrained=True, output_shape=(64, 64),
+                 volume_size=64, cuboid_side=7500, v2v_features=128):
         
         super(Model, self).__init__()
         self.K = n_kps
@@ -600,11 +601,12 @@ class Model(nn.Module):
         channel_settings = [2048, 1024, 512, 256]
         self.output_shape = output_shape
 
-        self.kptNet = globalNet(channel_settings, output_shape, n_kps)
+        self.kptNet = globalNet(channel_settings, output_shape, n_kps,
+                                v2v_features=v2v_features)
 
-        self.volume_size = 64
+        self.volume_size = volume_size
         # self.cuboid_side = 12500
-        self.cuboid_side = 7500
+        self.cuboid_side = cuboid_side
 
 
         self.ch_softmax = nn.Softmax(dim=2)
@@ -612,9 +614,7 @@ class Model(nn.Module):
         
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         
-        # self.volume_net = V2VModel(128, self.K)
-
-        self.volume_net = V2VModel(128, self.K)
+        self.volume_net = V2VModel(v2v_features, self.K)
 
 
         # width == height for now
