@@ -103,3 +103,85 @@ def triangulate_points_full(points_2d, camera_params, confidence=None):
     #                       for i in range(pts_2d_und.shape[1])])
     pts_3d = triangulate_batch(pts_2d_und, extrinsics, confidence)
     return pts_3d
+
+class Camera:
+    def __init__(self, R, t, K, dist=None, name=""):
+        self.R = np.array(R).copy()
+        assert self.R.shape == (3, 3)
+
+        self.t = np.array(t).copy()
+        assert self.t.size == 3
+        self.t = self.t.reshape(3, 1)
+
+        self.K = np.array(K).copy()
+        assert self.K.shape == (3, 3)
+
+        self.dist = dist
+        if self.dist is not None:
+            self.dist = np.array(self.dist).copy().flatten()
+
+        self.name = name
+
+    def update_after_crop(self, bbox):
+        left, upper, right, lower = bbox
+
+        cx, cy = self.K[0, 2], self.K[1, 2]
+
+        new_cx = cx - left
+        new_cy = cy - upper
+
+        self.K[0, 2], self.K[1, 2] = new_cx, new_cy
+
+    def update_after_resize(self, image_shape, new_image_shape):
+        height, width = image_shape
+        new_height, new_width = new_image_shape
+
+        fx, fy, cx, cy = self.K[0, 0], self.K[1, 1], self.K[0, 2], self.K[1, 2]
+
+        new_fx = fx * (new_width / width)
+        new_fy = fy * (new_height / height)
+        new_cx = cx * (new_width / width)
+        new_cy = cy * (new_height / height)
+
+        self.K[0, 0], self.K[1, 1], self.K[0, 2], self.K[1, 2] = new_fx, new_fy, new_cx, new_cy
+
+    def update_after_rotation(self, image_shape, rotation):
+
+        fx, fy, cx, cy = self.K[0, 0], self.K[1, 1], self.K[0, 2], self.K[1, 2]
+
+        if rotation == 90:
+            new_fx = fy
+            new_fy = fx
+            new_cx = image_shape[1] - cy
+            new_cy = cx
+        elif rotation == 180:
+            new_fx = fx
+            new_fy = fy
+            new_cx = image_shape[0] - cx
+            new_cy = image_shape[1] - cy
+        elif rotation == 270:
+            new_fx = fy
+            new_fy = fx
+            new_cx = cy
+            new_cy = image_shape[0] - cx
+
+        self.K[0, 0], self.K[1, 1], self.K[0, 2], self.K[1, 2] = new_fx, new_fy, new_cx, new_cy
+
+        ext = self.extrinsics
+
+        rotation_matrix = np.array([[np.cos(rotation*np.pi/180), -1*np.sin(rotation*np.pi/180), 0],
+            [np.sin(rotation*np.pi/180), np.cos(rotation*np.pi/180), 0], [0,0,1]])
+
+        new_ext = np.matmul(rotation_matrix, ext)
+
+        self.R = new_ext[:3, :3]
+        self.t = new_ext[:3, 3][:, np.newaxis]
+
+
+    @property
+    def projection(self):
+        return self.K.dot(self.extrinsics)
+
+    @property
+    def extrinsics(self):
+        return np.hstack([self.R, self.t])
