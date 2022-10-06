@@ -5,6 +5,7 @@ import torchvision.transforms as transforms
 
 from dataloader import h36m_dataset as h36m
 from dataloader import mouse_dataset as mouse
+from dataloader import fly_dataset as fly
 
 from dataloader import rat_dataset
 
@@ -78,6 +79,36 @@ def load_dataloader(args):
                               normalize,]),
                               image_size=[args.image_size, args.image_size],
                               loader=loader)
+
+    elif args.dataset == 'fly':
+        traindir = os.path.join(args.data)
+        valdir = os.path.join(args.data)
+
+        train_dataset = fly.FlyDataset(
+            traindir,
+            transforms.Compose([
+                transforms.Resize(args.image_size),
+                transforms.CenterCrop(args.image_size),
+                transforms.ToTensor(),
+                normalize,]),
+            target_transform=transforms.Compose([
+                transforms.Resize(args.image_size),
+                transforms.CenterCrop(args.image_size),
+                transforms.ToTensor(),
+                normalize,]),
+            image_size=[args.image_size, args.image_size],
+            loader=loader)
+
+        val_dataset = fly.FlyDataset(
+            valdir, transforms.Compose([
+                transforms.ToTensor(),
+                normalize,]),
+            target_transform=transforms.Compose([
+                transforms.ToTensor(),
+                normalize,]),
+            image_size=[args.image_size, args.image_size],
+            loader=loader)
+
 
     elif args.dataset == 'custom_dataset':
         traindir = os.path.join(args.data, 'train')
