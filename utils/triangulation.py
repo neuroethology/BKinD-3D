@@ -15,6 +15,7 @@ def make_M(rvec, tvec):
 
 def load_calibration(calib_fname):
     calib = toml.load(calib_fname)
+    calib.pop('metadata', {})
     items = sorted(calib.items())
     cam_names = [d['name'] for c, d in items]
     intrinsics = [d['matrix'] for c, d in items]
