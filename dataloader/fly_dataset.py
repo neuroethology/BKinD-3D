@@ -25,7 +25,6 @@ from glob import glob
 from tqdm import tqdm
 from PIL import Image
 
-root = '~/data/anipose/release/fly-testing'
 
 def atoi(text):
     return int(text) if text.isdigit() else text
@@ -61,7 +60,7 @@ def get_video_name(config, fname):
     vidname = re.sub(cam_regex, '', basename)
     return vidname.strip()
 
-def generate_pair_images(root, flies, gap=20, downsample=6):
+def generate_pair_images(root, flies, gap=20, downsample=20):
     root = os.path.abspath(os.path.expanduser(root))
 
     # load the calibration
@@ -114,14 +113,16 @@ def generate_pair_images(root, flies, gap=20, downsample=6):
                     while True:
                         ret, img_bgr = cap.read()
                         if not ret: break
-                        img = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
                         if framenum % downsample == 0:
+                            img = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
                             images.append(img)
                         if framenum >= gap and (framenum - gap) % downsample == 0:
+                            img = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
                             images_next.append(img)
                         framenum += 1
                     video_images.append(images)
                     video_images_next.append(images_next)
+                    cap.release()
 
             n_frames = min([len(x) for x in video_images] +
                            [len(x) for x in video_images_next])
@@ -193,6 +194,9 @@ class FlyDataset(data.Dataset):
             'calibration': []
         }
 
+        calib = image_dict['calibration']
+        intrinsics = torch.stack(calib['intrinsics']).clone()
+
         for i in range(num_cameras):
             im0_arr, im1_arr = image_dict['items'][i]
 
@@ -201,6 +205,23 @@ class FlyDataset(data.Dataset):
 
             height, width = self._image_size[:2]
 
+            ratio = min(image0.height / height, image0.width / width)
+            crop_size = (int(ratio * height), int(ratio * width))
+            crop_params = transforms.RandomCrop.get_params(image0, crop_size)
+
+            # adjust intrinsics for crop
+            intrinsics[i, :2, 0] -= crop_params[1] # x
+            intrinsics[i, :2, 1] -= crop_params[0] # y
+
+            image0 = TF.crop(image0, *crop_params)
+            image1 = TF.crop(image1, *crop_params)
+
+            # adjust intrinsics for resize
+            ratio = self._image_size[0] / image0.height
+            intrinsics[i, :2] *= ratio
+
+            image0 = TF.resize(image0, self._image_size)
+            image1 = TF.resize(image1, self._image_size)
 
             # Create 3 rotations
             deg = 90
@@ -233,8 +254,7 @@ class FlyDataset(data.Dataset):
         # Process calibration
 
         # The calibration ordering here have to be the same as looping through all cameras above
-        calib = image_dict['calibration']
-        all_cam_items['calib_intrinsics'] = calib['intrinsics']
+        all_cam_items['calib_intrinsics'] = intrinsics
         all_cam_items['calib_extrinsics'] = calib['extrinsics']
         all_cam_items['calib_distortions'] = calib['distortions']
         all_cam_items['calib_names'] = calib['names']
@@ -254,3 +274,18 @@ class FlyDataset(data.Dataset):
         tmp = '    Target Transforms (if any): '
         fmt_str += '{0}{1}'.format(tmp, self.target_transform.__repr__().replace('\n', '\n' + ' ' * len(tmp)))
         return fmt_str
+
+
+if __name__ == '__main__':
+    import torchvision.transforms as transforms
+    root = '~/data/anipose/release/fly-testing'
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+    dataset = FlyDataset(root,
+                         transforms.Compose([
+                             transforms.ToTensor(),
+                             normalize,]),
+                         target_transform=transforms.Compose([
+                             transforms.ToTensor(),
+                             normalize,]),
+                         image_size=[256, 256])
