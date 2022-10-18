@@ -24,6 +24,7 @@ from collections import defaultdict
 from glob import glob
 from tqdm import tqdm
 from PIL import Image
+import torchvision.transforms as transforms
 
 
 def atoi(text):
@@ -159,6 +160,7 @@ class FlyDataset(data.Dataset):
                  simplified=False, crop_box=True, frame_gap=20):
 
         flies = ['Fly 1_0', 'Fly 2_0', 'Fly 3_0'] # eval on flies 4 and 5
+        # flies = ['Fly 1_0'] # eval on flies 4 and 5
 
         samples = generate_pair_images(root, flies, gap=frame_gap)
 
@@ -255,8 +257,8 @@ class FlyDataset(data.Dataset):
 
         # The calibration ordering here have to be the same as looping through all cameras above
         all_cam_items['calib_intrinsics'] = intrinsics
-        all_cam_items['calib_extrinsics'] = calib['extrinsics']
-        all_cam_items['calib_distortions'] = calib['distortions']
+        all_cam_items['calib_extrinsics'] = torch.stack(calib['extrinsics'])
+        all_cam_items['calib_distortions'] = torch.stack(calib['distortions'])
         all_cam_items['calib_names'] = calib['names']
 
         return all_cam_items
@@ -278,7 +280,8 @@ class FlyDataset(data.Dataset):
 
 if __name__ == '__main__':
     import torchvision.transforms as transforms
-    root = '~/data/anipose/release/fly-testing'
+    # root = '~/data/anipose/release/fly-testing'
+    root = 'data/fly-testing'
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
     dataset = FlyDataset(root,

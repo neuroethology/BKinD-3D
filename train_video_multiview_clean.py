@@ -119,11 +119,13 @@ def main_worker(gpu, ngpus_per_node, args):
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
-        num_workers=args.workers, pin_memory=True, sampler=train_sampler)
+        num_workers=args.workers, pin_memory=True,
+        sampler=train_sampler)
 
     val_loader = torch.utils.data.DataLoader(
         val_dataset, batch_size=args.batch_size, shuffle=False,
-        num_workers=args.workers, pin_memory=True)
+        num_workers=args.workers, pin_memory=True
+    )
 
     if args.evaluate:
         validate(val_loader, model, loss_module, 0, args)
@@ -279,8 +281,7 @@ def train(train_loader, model, edge_weights, running_average, loss_module, loss_
                 save_multi_images(all_cam_items['image'], all_cam_points_ori,
                     all_cam_points, output['recon'], ssim_list,
                     output['tr_kpt_out'], output['tr_kpt_cond'], 
-                    [output['tr_confidence'],output['tr_confidence'],
-                    output['tr_confidence'],output['tr_confidence']], epoch, args, epoch)                
+                    [output['tr_confidence'] for _ in range(len(all_cam_items['image']))], epoch, args, epoch)
                 # print(output['tr_pos'][0].size(), projected_points[:, :, 0].size())
                 # save_3d_images(pts_3d.detach().cpu(), epoch, args, epoch)
 

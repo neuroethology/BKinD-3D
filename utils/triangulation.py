@@ -21,9 +21,9 @@ def load_calibration(calib_fname):
     intrinsics = [d['matrix'] for c, d in items]
     distortions = [d['distortions'] for c, d in items]
     extrinsics = [make_M(d['rotation'], d['translation']) for c, d in items]
-    intrinsics = torch.as_tensor(intrinsics, dtype=torch.float32).cuda()
-    extrinsics = torch.as_tensor(extrinsics, dtype=torch.float32).cuda()
-    distortions = torch.as_tensor(distortions, dtype=torch.float32).cuda()
+    intrinsics = torch.as_tensor(intrinsics, dtype=torch.float32)
+    extrinsics = torch.as_tensor(extrinsics, dtype=torch.float32)
+    distortions = torch.as_tensor(distortions, dtype=torch.float32)
     return {
         'names': cam_names,
         'intrinsics': intrinsics,
