@@ -664,6 +664,8 @@ class Model(nn.Module):
         # x and tr_x are lists 
         device = x[0].device
 
+        image_size = x[0].size(2)
+
         return_dict = {}
 
         heatmaps_ori = []
@@ -712,12 +714,15 @@ class Model(nn.Module):
         new_cameras = deepcopy(all_cams)
         n_views = len(x)
         batch_size = x[0].size()[0]
+
         #### Get projection matrices
         for view_i in range(n_views):
             for batch_i in range(batch_size):
-                new_cameras[view_i][batch_i].update_after_resize([1000, 1000], [kpt_out[-1].size(2), kpt_out[-1].size(3)])
+                new_cameras[view_i][batch_i].update_after_resize([x[0].size(2), x[0].size(3)],
+                                                                 [kpt_out[-1].size(2), kpt_out[-1].size(3)])
 
-        proj_matricies = torch.stack([torch.stack([torch.from_numpy(camera.projection) for camera in camera_batch], dim=0) for camera_batch in new_cameras], dim=0).transpose(1, 0)  # shape (batch_size, n_views, 3, 4)
+        proj_matricies = torch.stack([torch.stack([torch.from_numpy(camera.projection) for camera in camera_batch], dim=0)
+                                      for camera_batch in new_cameras], dim=0).transpose(1, 0)  # shape (batch_size, n_views, 3, 4)
         proj_matricies = proj_matricies.float().to(device)        
 
 
@@ -742,7 +747,9 @@ class Model(nn.Module):
             # cuboids.append(cuboid)
 
             # build coord volume
-            xxx, yyy, zzz = torch.meshgrid(torch.arange(self.volume_size, device=device), torch.arange(self.volume_size, device=device), torch.arange(self.volume_size, device=device))
+            xxx, yyy, zzz = torch.meshgrid(torch.arange(self.volume_size, device=device),
+                                           torch.arange(self.volume_size, device=device),
+                                           torch.arange(self.volume_size, device=device))
             grid = torch.stack([xxx, yyy, zzz], dim=-1).type(torch.float)
             grid = grid.reshape((-1, 3))
 
@@ -810,11 +817,11 @@ class Model(nn.Module):
                 'distortions': distortions[b]
             }
 
-            keypoint_2d = project_points(vol_keypoints_3d[b], camera_params)/500 - 1
+            keypoint_2d = project_points(vol_keypoints_3d[b], camera_params)/image_size - 1
 
             keypoint_batch.append(keypoint_2d)
 
-            keypoint_2d_tr = project_points(vol_keypoints_3d_tr[b], camera_params)/500 - 1
+            keypoint_2d_tr = project_points(vol_keypoints_3d_tr[b], camera_params)/image_size - 1
 
             keypoint_batch_tr.append(keypoint_2d_tr)
 
