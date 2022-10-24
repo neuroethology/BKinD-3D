@@ -5,7 +5,7 @@ data: data/H36M
 
 # Training information
 workers: 1
-epochs: 100
+epochs: 5
 start_epoch: 0
 schedule: 30
 batch_size: 1
@@ -18,7 +18,7 @@ gpu: 0
 val_schedule: 200
 curriculum: 2
 visualize: True
-v2v_features: 64
+v2v_features: 32
 cuboid_side: 7500
 volume_size: 64
 
