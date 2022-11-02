@@ -11,14 +11,43 @@ import torchvision
 
 import torchvision.transforms.functional as TF
 
-import h5py
-
 from dataloader.data_utils import *
 
 import cv2
 
 import toml
 import scipy.io
+from glob import glob
+from collections import defaultdict
+import re
+
+from tqdm import tqdm
+from PIL import Image
+import torchvision.transforms as transforms
+
+def natural_keys(text):
+    return [  int(c) if c.isdigit() else c
+              for c in re.split('(\d+)', text) ]
+
+def true_basename(fname):
+    basename = os.path.basename(fname)
+    basename = os.path.splitext(basename)[0]
+    return basename
+
+def get_cam_name(cam_regex, fname):
+    basename = true_basename(fname)
+    match = re.search(cam_regex, basename)
+
+    if not match:
+        return None
+    else:
+        name = match.groups()[0]
+        return name.strip()
+
+def get_video_name(cam_regex, fname):
+    basename = true_basename(fname)
+    vidname = re.sub(cam_regex, '', basename)
+    return vidname.strip()
 
 
 def generate_pair_images(root, subjects, actions, gap=20):
@@ -28,7 +57,8 @@ def generate_pair_images(root, subjects, actions, gap=20):
 
     # root = /home/ubuntu/efs/video_datasets/rat7m/
 
-    calibration_root = '/home/ubuntu/efs/video_datasets/rat7m/cameras/'
+    # calibration_root = '/home/ubuntu/efs/video_datasets/rat7m/cameras/'
+    calibration_root = os.path.join(root, 'labels')
 
     cameras = ['camera1','camera2', 'camera3', 'camera4', 'camera5', 'camera6']
 
@@ -36,11 +66,11 @@ def generate_pair_images(root, subjects, actions, gap=20):
         subject_root = os.path.join(root, subject)
 
         calib_file = os.path.join(calibration_root, "mocap-" + subject + '.mat')
-        
+
         mat = scipy.io.loadmat(calib_file)
 
         # ('frame', 'O'), ('IntrinsicMatrix', 'O'), ('rotationMatrix', 'O'), ('translationVector', 'O'), ('TangentialDistortion', 'O'), ('RadialDistortion', 'O')]
-        # print(mat['cameras'].item()[0]['IntrinsicMatrix'])        
+        # print(mat['cameras'].item()[0]['IntrinsicMatrix'])
 
         all_subdir = os.listdir(subject_root)
         all_clips = []
@@ -78,13 +108,127 @@ def generate_pair_images(root, subjects, actions, gap=20):
     return images
 
 
+def generate_pair_images_videos(root, subjects, gap=20, downsample=480):
+    root = os.path.abspath(os.path.expanduser(root))
+    subjects = ['s1-d1']
+
+    camera_names = ['camera1','camera2', 'camera3', 'camera4', 'camera5', 'camera6']
+    calibration_root = os.path.join(root, 'labels')
+
+    cam_regex = '(camera[0-9]+)-'
+
+    outs = []
+    for subject in subjects:
+        subject_root = os.path.join(root, subject)
+        calib_file = os.path.join(calibration_root, "mocap-" + subject + '.mat')
+        calibration = load_calibration_rat7m(calib_file)
+
+        video_files = glob(os.path.join(root, subject, '*.mp4'))
+        cam_videos = defaultdict(list)
+        for vf in video_files:
+            name = get_video_name(cam_regex, vf)
+            cam_videos[name].append(vf)
+
+        vid_names = cam_videos.keys()
+        vid_names = sorted(vid_names, key=natural_keys)
+
+        for name in tqdm(vid_names, ncols=70, desc=subject):
+            fnames = cam_videos[name]
+            cam_names = [get_cam_name(cam_regex, f) for f in fnames]
+            fname_dict = dict(zip(cam_names, fnames))
+
+            calib_temp = {'names': [],
+                          'intrinsics': [],
+                          'extrinsics': [],
+                          'distortions': []}
+
+            video_images = []
+            video_images_next = []
+            for ix_calib, cname in enumerate(camera_names):
+                if cname in fname_dict:
+                    calib_temp['names'].append(cname)
+                    calib_temp['intrinsics'].append(calibration['intrinsics'][ix_calib])
+                    calib_temp['extrinsics'].append(calibration['extrinsics'][ix_calib])
+                    calib_temp['distortions'].append(calibration['distortions'][ix_calib])
+
+                    images = []
+                    images_next = []
+
+                    cap = cv2.VideoCapture(fname_dict[cname])
+                    fps = cap.get(cv2.CAP_PROP_FPS)
+                    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                    for framenum in range(0, frame_count, downsample):
+                        c = cap.set(cv2.CAP_PROP_POS_MSEC, 1000.0 * framenum / fps)
+                        ret, img_bgr = cap.read()
+                        if not ret: break
+                        img = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+                        images.append(img)
+
+                    for framenum in range(gap, frame_count, downsample):
+                        c = cap.set(cv2.CAP_PROP_POS_MSEC, 1000.0 * framenum / fps)
+                        ret, img_bgr = cap.read()
+                        if not ret: break
+                        img = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+                        images_next.append(img)
+                    cap.release()
+
+                    video_images.append(images)
+                    video_images_next.append(images_next)
+                    cap.release()
+
+            n_frames = min([len(x) for x in video_images] +
+                           [len(x) for x in video_images_next])
+            n_cams = len(video_images)
+
+            for ix_frame in range(n_frames):
+                allcams_item = []
+                for ix_cam in range(n_cams):
+                    im0 = video_images[ix_cam][ix_frame]
+                    im1 = video_images_next[ix_cam][ix_frame]
+                    allcams_item.append([im0, im1])
+                outs.append({'calibration': calib_temp,
+                             'items': allcams_item})
+
+    return outs
+
+
+
 def make_M(rvec, tvec):
     out = np.zeros((4,4))
     # rotmat, _ = cv2.Rodrigues(np.array(rvec))
     out[:3,:3] = rvec
     out[:3, 3] = np.array(tvec).flatten()
     out[3, 3] = 1
-    return out        
+    return out
+
+
+def load_calibration_rat7m(calib_file):
+    mat = scipy.io.loadmat(calib_file)
+
+    intrinsics = []
+    extrinsics = []
+    distortions = []
+
+    names = [x.lower() for x in mat['cameras'].dtype.names]
+
+    for cam in [0, 1, 4, 2, 3, 5]:
+        intrinsics.append(mat['cameras'].item()[cam]['IntrinsicMatrix'].item().transpose())
+
+        # print(mat['cameras'].item()[cam]['rotationMatrix'].shape)
+        extrinsics.append(make_M(mat['cameras'].item()[cam]['rotationMatrix'].item().transpose(),
+                        mat['cameras'].item()[cam]['translationVector'].item()))
+
+        # print(mat['cameras'].item()[cam]['RadialDistortion'].item())
+        distortions.append([mat['cameras'].item()[cam]['RadialDistortion'].item()[0,0],
+            mat['cameras'].item()[cam]['RadialDistortion'].item()[0,1],
+            mat['cameras'].item()[cam]['TangentialDistortion'].item()[0,0],
+            mat['cameras'].item()[cam]['TangentialDistortion'].item()[0,1], 0.0])
+
+    return {
+        'intrinsics': intrinsics,
+        'extrinsics': extrinsics,
+        'distortions': distortions
+    }
 
 
 
@@ -96,13 +240,13 @@ class RatDataset(data.Dataset):
                  loader=box_loader, image_size=[128, 128],
                  simplified=False, crop_box=True, frame_gap=20):
 
-        subjects = ['S1', 'S8' ] 
+        subjects = ['s1-d1']
         actions = []
 
-        #  'S5','S6', 'S7',  
+        #  'S5','S6', 'S7',
 
         # if simplified:
-        #     actions = ['Waiting-1', 'Waiting-2', 
+        #     actions = ['Waiting-1', 'Waiting-2',
         #         'Posing-1', 'Posing-2', 'Greeting-1', 'Greeting-2',
         #         'Directions-1', 'Directions-2', 'Discussion-1', 'Discussion-2', 'Walking-1', 'Walking-2']
         # else:
@@ -114,9 +258,9 @@ class RatDataset(data.Dataset):
         #                'Waiting-1', 'WalkingDog-1', 'Discussion-2', 'Greeting-2', 'Posing-2',
         #                'Sitting-2', 'Smoking-2', 'Waiting-2', 'WalkingDog-2']
 
-            # actions = ['Directions-1']            
+            # actions = ['Directions-1']
 
-        samples = generate_pair_images(root, subjects, actions, gap=frame_gap)
+        samples = generate_pair_images_videos(root, subjects, gap=frame_gap)
 
         if len(samples) == 0:
             raise(RuntimeError("Found 0 files in subfolders of: " + root + "\n"
@@ -136,33 +280,49 @@ class RatDataset(data.Dataset):
 
 
     def __getitem__(self, index):
-        
         image_dict = self.samples[index]
 
         # Assume same number of cameras for all samples.
         num_cameras = len(image_dict['items'])
 
-        all_cam_items = {'image' : [],
-                        'mask' : [],
-                        'rotation' : [],
-                        'image_path' : [],
-                        'calibration': []}
+        all_cam_items = {
+            'image' : [],
+            'mask' : [],
+            'rotation' : [],
+            'image_path' : [],
+            'calibration': []
+        }
+
+        calib = image_dict['calibration']
+        intrinsics = torch.stack(calib['intrinsics']).clone()
 
         for i in range(num_cameras):
-            img_path0, img_path1, bbox0, bbox1  = image_dict['items'][i]
-            # Not using calibration for now.
+            im0_arr, im1_arr = image_dict['items'][i]
 
-            # if self.crop_box:
-            #     im0 = self.loader(img_path0, bbox0)
-            #     im1 = self.loader(img_path1, bbox0)
-            # else:
-            im0 = self.loader(img_path0)
-            im1 = self.loader(img_path1)
+            image0 = Image.fromarray(im0_arr)
+            image1 = Image.fromarray(im1_arr)
 
             height, width = self._image_size[:2]
 
-            image0 = torchvision.transforms.Resize((height, width))(im0)
-            image1 = torchvision.transforms.Resize((height, width))(im1)
+            ratio = min(image0.height / height, image0.width / width)
+            crop_size = (int(ratio * height), int(ratio * width))
+            crop_params = transforms.RandomCrop.get_params(image0, crop_size)
+
+            # adjust intrinsics for crop
+            # intrinsics[i, :2, 0] -= crop_params[1] # x
+            # intrinsics[i, :2, 1] -= crop_params[0] # y
+            intrinsics[i, 0, 2] -= crop_params[1] # x
+            intrinsics[i, 1, 2] -= crop_params[0] # y
+
+            image0 = TF.crop(image0, *crop_params)
+            image1 = TF.crop(image1, *crop_params)
+
+            # adjust intrinsics for resize
+            ratio = self._image_size[0] / image0.height
+            intrinsics[i, :2] *= ratio
+
+            image0 = TF.resize(image0, self._image_size)
+            image1 = TF.resize(image1, self._image_size)
 
             # Create 3 rotations
             deg = 90
@@ -188,54 +348,21 @@ class RatDataset(data.Dataset):
             # rot_image2, rot_image3, img_path0, img_path1)
 
             all_cam_items['image'].append((image0, image1))
-            all_cam_items['mask'].append((mask, mask))            
+            all_cam_items['mask'].append((mask, mask))
             all_cam_items['rotation'].append((rot_image1, rot_image2, rot_image3))
-            all_cam_items['image_path'].append((img_path0, img_path1))  
+            # all_cam_items['image_path'].append((img_path0, img_path1))
 
         # Process calibration
 
         # The calibration ordering here have to be the same as looping through all cameras above
-        mat = image_dict['calibration']
-
-
-        # ('frame', 'O'), ('IntrinsicMatrix', 'O'), ('rotationMatrix', 'O'), ('translationVector', 'O'), ('TangentialDistortion', 'O'), ('RadialDistortion', 'O')]
-        # print(mat['cameras'].item()[0]['IntrinsicMatrix'])        
-        intrinsics = []
-        extrinsics = []
-        distortions = []
-
-
-        for cam in [0, 1, 4, 2, 3, 5]:
-            intrinsics.append(mat['cameras'].item()[cam]['IntrinsicMatrix'].item().transpose())
-
-            # print(mat['cameras'].item()[cam]['rotationMatrix'].shape)
-            extrinsics.append(make_M(mat['cameras'].item()[cam]['rotationMatrix'].item().transpose(), 
-                            mat['cameras'].item()[cam]['translationVector'].item()))
-
-            # print(mat['cameras'].item()[cam]['RadialDistortion'].item())
-            distortions.append([mat['cameras'].item()[cam]['RadialDistortion'].item()[0,0],
-                mat['cameras'].item()[cam]['RadialDistortion'].item()[0,1],
-                mat['cameras'].item()[cam]['TangentialDistortion'].item()[0,0],
-                mat['cameras'].item()[cam]['TangentialDistortion'].item()[0,1], 0.0])
-
-            # distortions.append([0.0, 0.0, 0.0, 0.0, 0.0])            
-
-        # items = sorted(calib.items())
-        # cam_names = [d['name'] for c, d in items]
-        # intrinsics = [d['matrix'] for c, d in items]
-        # distortions = [d['distortions'] for c, d in items]
-        # extrinsics = [make_M(d['rotation'], d['translation']) for c, d in items]
-
-        intrinsics = torch.as_tensor(np.array(intrinsics), dtype=torch.float32)
-        extrinsics = torch.as_tensor(np.array(extrinsics), dtype=torch.float32)
-        distortions = torch.as_tensor(np.array(distortions), dtype=torch.float32)
-
         all_cam_items['calib_intrinsics'] = intrinsics
-        all_cam_items['calib_extrinsics'] = extrinsics
-        all_cam_items['calib_distortions'] = distortions
+        all_cam_items['calib_extrinsics'] = torch.stack(calib['extrinsics'])
+        all_cam_items['calib_distortions'] = torch.stack(calib['distortions'])
+        all_cam_items['calib_names'] = calib['names']
 
-        # Store num_cameras? Not necessary if all the same 
         return all_cam_items
+
+
 
 
     def __len__(self):
