@@ -1,0 +1,39 @@
+# Dataset
+dataset: rat_dataset
+# data: /home/ubuntu/efs/video_datasets/rat7m
+data: /data/users/pierre/rat7m
+
+# Training information
+workers: 4
+epochs: 100
+start_epoch: 0
+schedule: 30
+batch_size: 1
+lr: 0.001
+momentum: 0.9
+weight_decay: 0.0001
+print_freq: 10
+pretrained: True
+gpu: 0
+val_schedule: 200
+curriculum: 100
+visualize: True
+v2v_features: 32
+cuboid_side: 1000
+volume_size: 64
+
+# Path to save checkpoint
+checkpoint: checkpoint/Rat_15nkpts
+# Specify number of keypoints
+nkpts: 15
+
+# Hyperparameters
+image_size: 256
+frame_gap: 60
+bounding_box: False
+
+perc_weight: [100.0, 1.6, 2.3, 1.8, 2.8, 100.0]
+
+# Specify model path
+# resume: /home/ubuntu/efs/2022_exps/github/BKinD3D_multi_transformer/checkpoint/H36M_nocrop_256/checkpoint.pth.tar
+evaluate: False

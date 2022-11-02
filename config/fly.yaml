@@ -1,0 +1,39 @@
+# Dataset
+dataset: fly
+# data: /home/ubuntu/efs/kp_discovery_h36m/h36m-fetch/processed
+data: data/fly-testing
+
+# Training information
+workers: 1
+epochs: 100
+start_epoch: 0
+schedule: 30
+batch_size: 1
+lr: 0.001
+momentum: 0.9
+weight_decay: 0.0001
+print_freq: 10
+pretrained: True
+gpu: 0
+val_schedule: 200
+curriculum: 2
+visualize: True
+v2v_features: 32
+cuboid_side: 6
+volume_size: 64
+
+# Path to save checkpoint
+checkpoint: checkpoint/fly_32
+# Specify number of keypoints
+nkpts: 15
+
+# Hyperparameters
+image_size: 256
+frame_gap: 20
+bounding_box: False
+
+perc_weight: [100.0, 1.6, 2.3, 1.8, 2.8, 100.0]
+
+# Specify model path
+# resume: checkpoint/H36M_nocrop_256/checkpoint.pth.tar
+evaluate: False
