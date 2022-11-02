@@ -130,7 +130,7 @@ def generate_pair_images_videos(root, subjects, gap=20, downsample=480):
             cam_videos[name].append(vf)
 
         vid_names = cam_videos.keys()
-        vid_names = sorted(vid_names, key=natural_keys)
+        vid_names = sorted(vid_names, key=natural_keys)[:5]
 
         for name in tqdm(vid_names, ncols=70, desc=subject):
             fnames = cam_videos[name]
@@ -294,7 +294,7 @@ class RatDataset(data.Dataset):
         }
 
         calib = image_dict['calibration']
-        intrinsics = torch.stack(calib['intrinsics']).clone()
+        intrinsics = torch.as_tensor(calib['intrinsics']).clone()
 
         for i in range(num_cameras):
             im0_arr, im1_arr = image_dict['items'][i]
@@ -356,8 +356,8 @@ class RatDataset(data.Dataset):
 
         # The calibration ordering here have to be the same as looping through all cameras above
         all_cam_items['calib_intrinsics'] = intrinsics
-        all_cam_items['calib_extrinsics'] = torch.stack(calib['extrinsics'])
-        all_cam_items['calib_distortions'] = torch.stack(calib['distortions'])
+        all_cam_items['calib_extrinsics'] = torch.as_tensor(calib['extrinsics'])
+        all_cam_items['calib_distortions'] = torch.as_tensor(calib['distortions'])
         all_cam_items['calib_names'] = calib['names']
 
         return all_cam_items
