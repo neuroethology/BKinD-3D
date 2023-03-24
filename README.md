@@ -1,10 +1,9 @@
 # BKinD-3D: Self-Supervised 3D Keypoint Discovery from Multi-View Videos
 
-<p align="center"><img src="figs/bkind_fig.png" width="80%" alt="" /></p> 
-
-
 Implementation from the paper:
->Jennifer J. Sun*, Serim Ryou*, Roni Goldshmid, Brandon Weissbourd, John Dabiri, David J. Anderson, Ann Kennedy, Yisong Yue, Pietro Perona, [Self-Supervised Keypoint Discovery in Behavioral Videos](https://arxiv.org/pdf/2112.05121.pdf). In Conference on Computer Vision and Pattern Recognition (CVPR), 2022
+> Jennifer J. Sun*, Lili Karashchuk*, Amil Dravid*, Serim Ryou, Sonia Fereidooni, John C. Tuthill, Aggelos Katsaggelos, Bingni W. Brunton, Georgia Gkioxari, Ann Kennedy, Yisong Yue, Pietro Perona,
+ [BKinD-3D: Self-Supervised 3D Keypoint Discovery from Multi-View Videos](https://arxiv.org/abs/2212.07401). In Conference on Computer Vision and Pattern Recognition (CVPR), 2023
+
 
 BKinD-3D discovers keypoints in 3D from multi-view behavioral videos without any keypoint or bounding box supervision in 2D or 3D. It works on a range of organisms including rats and humans. The discovered keypoints and additional shape features are directly applicable to downstream tasks including behavior classification and pose regression!
 
