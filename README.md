@@ -1,5 +1,7 @@
 # BKinD-3D: Self-Supervised 3D Keypoint Discovery from Multi-View Videos
 
+<p align="center"><img src="figs/bkind3d_fig.png" width="90%" alt="" /></p>
+
 Implementation from the paper:
 > Jennifer J. Sun*, Lili Karashchuk*, Amil Dravid*, Serim Ryou, Sonia Fereidooni, John C. Tuthill, Aggelos Katsaggelos, Bingni W. Brunton, Georgia Gkioxari, Ann Kennedy, Yisong Yue, Pietro Perona,
  [BKinD-3D: Self-Supervised 3D Keypoint Discovery from Multi-View Videos](https://arxiv.org/abs/2212.07401). In Conference on Computer Vision and Pattern Recognition (CVPR), 2023
@@ -7,7 +9,7 @@ Implementation from the paper:
 
 BKinD-3D discovers keypoints in 3D from multi-view behavioral videos without any keypoint or bounding box supervision in 2D or 3D. It works on a range of organisms including rats and humans. The discovered keypoints and additional shape features are directly applicable to downstream tasks including behavior classification and pose regression!
 
-<p align="center"><img src="figs/bkind3d.gif" width="60%" alt="" /></p>
+<p align="center"><img src="figs/bkind3d.gif" width="80%" alt="" /></p>
 
 # Set up environment
 0. We provided an environment file vol3d_env.yml for running our train & evaluation code
